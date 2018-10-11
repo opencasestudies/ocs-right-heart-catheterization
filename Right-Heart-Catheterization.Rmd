@@ -13,7 +13,7 @@ output:
 ---
 
 
-
+\newpage
 
 
 ```{r setup, include=FALSE}
@@ -42,6 +42,10 @@ You can find the description of the data from http://biostat.mc.vanderbilt.edu/w
 
 
 ## Data preparation
+
+By reading the description of the data, we need to exclude several variables in the data set. The variables including all the enrollment time, discharge time and so on, and the variable with percentage of missing value larger than 20%.
+
+We choose 20% as an arbitary number since we do not want to loss too much information from the whole data set.
 
 
 ```{r}
@@ -79,7 +83,7 @@ summary(dat.rhc)
 str(dat.rhc)
 ```
 
-
+Changing the type of the data is also very important for survival analysis
 
 
 
@@ -108,6 +112,9 @@ str(dat.rhc)
 ## Analysis
 
 ### Cox model and Survival Random Forest
+
+After cleaning the data, we can fit the cox model and survival random forest with our data
+
 ```{r}
 fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = dat.rhc)
 fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = TRUE, ntree = 100)
@@ -116,6 +123,8 @@ fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = T
 
 
 ### Cross validation
+
+We can definetly compute cross validation test error by our own code. However, for the survival analysis, the 'pec' package save us lots of effort to do the cross validation and also the function is faster.
 
 ```{r}
 
@@ -128,6 +137,10 @@ fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = T
 
 
 ### Restricted Mean Survival time (Causual Inference)
+
+Causal inference is the process of drawing a conclusion about a causal connection based on the conditions of the occurrence of an effect. The main difference between causal inference and inference of association is that the former analyzes the response of the effect variable when the cause is changed.[1][2] The science of why things occur is called etiology. Causal inference is an example of causal reasoning (https://en.wikipedia.org/wiki/Causal_inference)
+
+We will use the idea of it to compute the difference of survival time between having RHC and not having RHC by both model
 
 ```{r}
 rhc0 <- rhc1 <- dat.rhc
