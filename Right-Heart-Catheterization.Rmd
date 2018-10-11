@@ -2,14 +2,14 @@
 title: "Case-study Right heart catheterization"
 author: "Hanchao Zhang, M.S."
 output:
+  pdf_document:
+    toc: yes
   html_document:
     md_extensions: -startnum
     toc: yes
     toc_float:
       collapsed: yes
       smooth_scroll: no
-  pdf_document:
-    toc: yes
 ---
 
 
@@ -83,7 +83,6 @@ str(dat.rhc)
 
 
 
-
 ```{r}
 for (i in names(dat.rhc)) {
   if(is.numeric(dat.rhc[,i])){
@@ -95,6 +94,7 @@ for (i in names(dat.rhc)) {
   }
 }
 dat.rhc$dth30 <- as.numeric(dat.rhc$dth30) - 1
+dat.rhc$swang1 <- as.numeric(dat.rhc$swang1) - 1
 ```
 
 
@@ -105,46 +105,64 @@ summary(dat.rhc)
 str(dat.rhc)
 ```
 
+## Analysis
 
-
+### Cox model and Survival Random Forest
 ```{r}
 fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = dat.rhc)
 fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = TRUE, ntree = 100)
 
+```
+
+
+### Cross validation
+
+```{r}
+
+
+#fitpec1 <- pec(list("Cox" = fit1), formula = Surv(t3d30,dth30) ~ 1, data = dat.rhc, cens.model = 'cox', splitMethod = "cv3", keep.index = TRUE, keep.matrix = TRUE)
+
 
 ```
+
+
+
+### Restricted Mean Survival time (Causual Inference)
+
+```{r}
+rhc0 <- rhc1 <- dat.rhc
+rhc0$swang1 <- 0
+rhc1$swang1 <- 1
+```
+
+
+```{r}
+time1 <- survfit(fit1, newdata = rhc0)$surv
+time2 <- survfit(fit1, newdata = rhc1)$surv
+
+rowMeans(time1) %>%
+  plot(type = "l", col = "blue", main = 'RMST-Cox model', xlab = 'Days', ylab = 'Survival Rate')
+rowMeans(time2) %>%
+  lines(col = "red")
+legend('topright', c('No RHC','RHC'), col = c('blue','red'), pch = 20)
+```
+
+
 
 
 
 
 ```{r}
+time3 <- predict(fit2, newdata = rhc0)$survival
+time4 <- predict(fit2, newdata = rhc1)$survival
 
-cox2 <- selectCox(fitform2, data = df, rule = "aic")
-cox2
 
-fitpec2 <- pec(list("Cox2" = cox2),
-formula = thres,
-data = df,
-cens.model = 'cox',
-splitMethod = "cv3",
-keep.index = TRUE,
-keep.matrix = TRUE)
-
-fitpec2
-
+colMeans(time3) %>%
+  plot(type = "l", col = "blue", main = 'RMST-Survival random forest', xlab = 'Days', ylab = 'Survival Rate')
+colMeans(time4) %>%
+  lines(col = "red")
+legend('topright', c('No RHC','RHC'), col = c('blue','red'), pch = 20)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
