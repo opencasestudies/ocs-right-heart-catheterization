@@ -1,0 +1,159 @@
+---
+title: "Case-study Right heart catheterization"
+author: "Hanchao Zhang, M.S."
+output:
+  html_document:
+    md_extensions: -startnum
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+---
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(survival)
+library(GGally)
+library(survRM2)
+library(knitr)
+library(randomForestSRC)
+library(ggRandomForests)
+library(pROC)
+library(grpreg)
+library(pec)
+```
+
+## Motivation
+
+Right heart catheterization (RHC), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. By this way, the catheter can measure the functions of the heart such as blood pressure, cardiac output, etc., including other measures in connection to heart problems such as diurnal respiratory instability according to one study by Kumagai, et al. (2018). In turn, these measurements are used to treat and manage heart conditions such as heart failure, congenital heart disease, cardiomyopathy, pulmonary hypertension, etc. Thus, many cardiologists and critical care physicians believe that the direct measurements of the cardiac functions by RHC is necessary to the management of treating critically ill patients and that such management will theoretically lead to better health outcomes according to Connors, et al. (1996). However, due to the severity of the cardiac conditions of the patients as well as the invasive procedure of RHC with no guarantee of any beneficial outcomes, data measuring the benefits of the RHC procedure cannot easily be collected in a randomized control trial (RCT). To make up for this, observational studies were used to evaluate the effectiveness of the RHC procedure. Although, these studies are
+
+susceptible to treatment selection bias as physicians can make the decision to use or withhold RHC in the treatment of their patients.
+
+The purpose of this study is to reproduce the statistical analysis of the objective of the research, The Effectiveness of Right Heart Catheterization in the Initial Care, using the data it collected from a large group of critically ill patients and in predefined patient subgroups in order to determine how valid is the association between the use of the right heart catheterization during the first 24 hours of an ICU stay with subsequent survival, length of stay, intensity of care, and cost of care.
+
+You can find the description of the data from http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html
+
+
+## Data preparation
+
+
+```{r}
+rhc <- read.csv("http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv")
+rhc <- rhc[,-1]
+var.vector <- c(
+"cat2",
+"sadmdte",
+"dschdte",
+"dthdte",
+"lstctdte",
+"death",
+"surv2md1",
+"ptid"
+)
+var.which <- NULL
+for (i in var.vector) {
+  var.which[i] <- which(names(rhc) == i)
+}
+
+var.which2 <- NULL
+for (i in names(rhc)) {
+  if( sum(is.na(rhc[,i]))/nrow(rhc) > 0.2 ){
+    var.which2[i] <- which(names(rhc) == i)
+  }
+}
+
+dat.rhc <- rhc[,-c(var.which, var.which2)]
+```
+
+
+
+```{r}
+summary(dat.rhc)
+str(dat.rhc)
+```
+
+
+
+
+
+
+```{r}
+for (i in names(dat.rhc)) {
+  if(is.numeric(dat.rhc[,i])){
+    if(mean(dat.rhc[,i], na.rm = T) < 5){
+      dat.rhc[,i] <- as.factor((dat.rhc[,i]))
+    }else{
+      dat.rhc[,i] <- ((dat.rhc[,i]))
+    }
+  }
+}
+dat.rhc$dth30 <- as.numeric(dat.rhc$dth30) - 1
+```
+
+
+
+
+```{r}
+summary(dat.rhc)
+str(dat.rhc)
+```
+
+
+
+```{r}
+fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = dat.rhc)
+fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = TRUE, ntree = 100)
+
+
+```
+
+
+
+
+```{r}
+
+cox2 <- selectCox(fitform2, data = df, rule = "aic")
+cox2
+
+fitpec2 <- pec(list("Cox2" = cox2),
+formula = thres,
+data = df,
+cens.model = 'cox',
+splitMethod = "cv3",
+keep.index = TRUE,
+keep.matrix = TRUE)
+
+fitpec2
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
