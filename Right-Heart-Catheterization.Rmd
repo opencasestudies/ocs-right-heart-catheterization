@@ -72,15 +72,15 @@ for (i in names(rhc)) {
   }
 }
 
-dat.rhc <- rhc[,-c(var.which, var.which2)]
+rhc_DF <- rhc[,-c(var.which, var.which2)]
 ```
 
 
 
 
 ```{r}
-summary(dat.rhc)
-str(dat.rhc)
+summary(rhc_DF)
+str(rhc_DF)
 ```
 
 
@@ -90,18 +90,18 @@ Changing the type of the data is also very important for survival analysis, and 
 
 
 ```{r}
-for (i in names(dat.rhc)) {
-  if(is.numeric(dat.rhc[,i])){
-    if(mean(dat.rhc[,i], na.rm = T) < 5){
-      dat.rhc[,i] <- as.factor((dat.rhc[,i]))
+for (i in names(rhc_DF)) {
+  if(is.numeric(rhc_DF[,i])){
+    if(mean(rhc_DF[,i], na.rm = T) < 5){
+      rhc_DF[,i] <- as.factor((rhc_DF[,i]))
     }else{
-      dat.rhc[,i] <- ((dat.rhc[,i]))
+      rhc_DF[,i] <- ((rhc_DF[,i]))
     }
   }
 }
-dat.rhc$dth30 <- as.numeric(dat.rhc$dth30) - 1
-dat.rhc$swang1 <- as.numeric(dat.rhc$swang1) - 1
-table(dat.rhc$swang1)
+rhc_DF$dth30 <- as.numeric(rhc_DF$dth30) - 1
+rhc_DF$swang1 <- as.numeric(rhc_DF$swang1) - 1
+table(rhc_DF$swang1)
 ```
 
 
@@ -109,7 +109,7 @@ table(dat.rhc$swang1)
 
 ## Analysis
 
-### Cox model and Survival Random Forest
+### Cox model and (Survival Random Forest)
 
 After cleaning the data, we can fit the cox model and survival random forest with our data
 
@@ -118,8 +118,8 @@ After cleaning the data, we can fit the cox model and survival random forest wit
 ### ADD SOME MORE INFORMATION HERE ABOUT COX MODEL AND SURVIVAL ANALYSIS
 
 ```{r}
-fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = dat.rhc)
-fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = dat.rhc, nsplit = 10, importance = TRUE, ntree = 100)
+fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = rhc_DF)
+fit2 <- rfsrc(Surv(t3d30,dth30) ~ ., data = rhc_DF, nsplit = 10, importance = TRUE, ntree = 100)
 
 ```
 
@@ -134,9 +134,9 @@ We can definitely compute cross-validation test error by our own code. However, 
 
 
 ```{r}
+full <- Surv(t3d30,dth30) ~ 1
 
-
-#fitpec1 <- pec(list("Cox" = fit1), formula = Surv(t3d30,dth30) ~ 1, data = dat.rhc, cens.model = 'cox', splitMethod = "cv3", keep.index = TRUE, keep.matrix = TRUE)
+fitpec1 <- pec(list("Cox" = fit2), formula =full, data = rhc_DF, cens.model = 'cox', splitMethod = "cv3", keep.index = TRUE, keep.matrix = TRUE)
 
 
 ```
@@ -156,7 +156,7 @@ We will use the idea of it to compute the difference of survival time between ha
 
 
 ```{r}
-rhc0 <- rhc1 <- dat.rhc
+rhc0 <- rhc1 <- rhc_DF
 rhc0$swang1 <- 0
 rhc1$swang1 <- 1
 ```
