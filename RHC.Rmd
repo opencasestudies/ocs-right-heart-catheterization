@@ -1,0 +1,213 @@
+---
+title: "Case-study Right heart catheterization"
+author: "Hanchao Zhang, M.S."
+output:
+  html_document:
+    md_extensions: -startnum
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+---
+
+
+\newpage
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tableone)
+library(tidyverse)
+library(survival)
+library(survminer)
+
+library(GGally)
+library(survRM2)
+library(knitr)
+library(randomForestSRC)
+library(ggRandomForests)
+library(pROC)
+library(grpreg)
+library(pec)
+```
+
+## Motivation
+
+Right heart catheterization (RHC), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. By this way, the catheter can measure the functions of the heart such as blood pressure, cardiac output, etc., including other measures in connection to heart problems such as diurnal respiratory instability according to one study by Kumagai, et al. (2018). In turn, these measurements are used to treat and manage heart conditions such as heart failure, congenital heart disease, cardiomyopathy, pulmonary hypertension, etc. Thus, many cardiologists and critical care physicians believe that the direct measurements of the cardiac functions by RHC is necessary to the management of treating critically ill patients and that such management will theoretically lead to better health outcomes according to Connors, et al. (1996). However, due to the severity of the cardiac conditions of the patients as well as the invasive procedure of RHC with no guarantee of any beneficial outcomes, data measuring the benefits of the RHC procedure cannot easily be collected in a randomized control trial (RCT). To make up for this, observational studies were used to evaluate the effectiveness of the RHC procedure. Although, these studies are
+
+susceptible to treatment selection bias as physicians can make the decision to use or withhold RHC in the treatment of their patients.
+
+The purpose of this study is to reproduce the statistical analysis of the objective of the research, The Effectiveness of Right Heart Catheterization in the Initial Care, using the data it collected from a large group of critically ill patients and in predefined patient subgroups in order to determine how valid is the association between the use of the right heart catheterization during the first 24 hours of an ICU stay with subsequent survival, length of stay, intensity of care, and cost of care.
+
+You can find the description of the data from http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html
+
+
+## Data Import
+
+By reading the description of the data, we need to exclude several variables in the dataset. The variables including all the enrollment time, discharge time and so on, and the variables with percentage of missing value larger than 20% are also excluded.
+
+We choose 20% as an arbitrary number since we do not want to lose too much information from the whole data set.
+
+```{r}
+rhc <- read.csv("http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv")
+rhc <- rhc[,-1]
+var.vector <- c(
+"cat2",
+"sadmdte",
+"dschdte",
+"dthdte",
+"lstctdte",
+"death",
+"surv2md1",
+"ptid"
+)
+var.which <- NULL
+for (i in var.vector) {
+  var.which[i] <- which(names(rhc) == i)
+}
+
+var.which2 <- NULL
+for (i in names(rhc)) {
+  if( sum(is.na(rhc[,i]))/nrow(rhc) > 0.2 ){
+    var.which2[i] <- which(names(rhc) == i)
+  }
+}
+
+rhc_DF <- rhc[,-c(var.which, var.which2)]
+```
+
+## Data Wrangling
+
+### 1. Check the type of the data
+
+
+
+```{r}
+summary(rhc_DF)
+str(rhc_DF)
+```
+
+
+
+Changing the type of the data is also very important for survival analysis, and by checking the data, we also sometimes need to deal with variables with characters. In our data set, the status of having RHC or not is denoted with character. A way to adjust it is to directly force it into factor. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we forced the character into a numeric number and deducted it by 1.
+
+### 2. Outcome and time variables
+
+
+```{r}
+for (i in names(rhc_DF)) {
+  if(is.numeric(rhc_DF[,i])){
+    if(mean(rhc_DF[,i], na.rm = T) < 5){
+      rhc_DF[,i] <- as.factor((rhc_DF[,i]))
+    }else{
+      rhc_DF[,i] <- ((rhc_DF[,i]))
+    }
+  }
+}
+rhc_DF$dth30 <- as.numeric(rhc_DF$dth30) - 1
+rhc_DF$swang1 <- as.numeric(rhc_DF$swang1) - 1
+table(rhc_DF$swang1)
+```
+
+
+
+
+## Exploretary Analysis
+
+
+
+### Kaplan Meier (non-parametric)
+
+
+The Kaplan Meier estimator is a non-parametric method that used to estimate the survival probability. It is often used to estiamte the survival rate stratified by some treatment of interest.
+
+
+
+```{r}
+fit <- survfit(Surv(t3d30, dth30) ~ swang1, data = rhc_DF)
+
+ggsurvplot(
+   fit,                     # survfit object with calculated statistics.
+   data = rhc_DF,           # data used to fit survival curves. 
+   risk.table = F,       # show risk table.
+   pval = TRUE,             # show p-value of log-rank test.
+   conf.int = TRUE,         # show confidence intervals for 
+                            # point estimaes of survival curves.
+   ggtheme = theme_minimal(), # customize plot and risk table with a theme.
+   risk.table.y.text.col = T, # colour risk table text annotations.
+  risk.table.y.text = FALSE # show bars instead of names in text annotations
+                            # in legend of risk table
+)
+```
+
+
+
+
+
+
+
+
+
+
+### Cox model (parametric)
+
+
+
+Cox model, also known as proportional hazards models are a class of parametric survival models in statistics. It includes variables like the time that passes, the event occurs and other covaraites that used to adjust the association of survival rate and time.
+
+A very important assumption of the cox model is that the model assume the hazard is a constant with the time passing by.
+
+
+
+```{r}
+fit1 <- coxph(Surv(t3d30,dth30) ~ . ,data = rhc_DF)
+```
+
+
+
+After fit the model, we can see the plot from the model with covariates adjusted.
+
+
+
+```{r}
+rhc0 <- rhc1 <- rhc_DF
+rhc0$swang1 <- 0
+rhc1$swang1 <- 1
+```
+
+
+```{r}
+time1 <- survfit(fit1, newdata = rhc0)$surv
+time2 <- survfit(fit1, newdata = rhc1)$surv
+
+rowMeans(time1) %>%
+  plot(type = "l", col = "blue", main = 'RMST-Cox model', xlab = 'Days', ylab = 'Survival Rate')
+rowMeans(time2) %>%
+  lines(col = "red")
+legend('topright', c('No RHC','RHC'), col = c('blue','red'), pch = 20)
+
+dat.time <- data.frame(time1 = rowMeans(time1), time2 = rowMeans(time2))
+ggplot(dat.time) +
+  geom_line(aes(x =1:length(dat.time$time1) ,y = time1, col = 'red')) +
+  geom_line(aes(x =1:length(dat.time$time2) ,y = time2, col = 'blue')) +
+  #theme_survminer() +
+  theme_minimal() +
+  labs(colour="Strata", x = "survival time", y = "probability") +
+  scale_color_manual(labels = c("No", "Yes"), values = c("blue", "red"))
+
+  
+
+
+```
+
+
+
+
+
+
+
+
+
+
