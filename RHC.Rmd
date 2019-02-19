@@ -21,12 +21,10 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = F)
 knitr::opts_chunk$set(warning = F)
 
-
 library(tableone)
 library(tidyverse)
 library(survival)
 library(survminer)
-
 library(GGally)
 library(survRM2)
 library(knitr)
@@ -36,125 +34,37 @@ library(ggRandomForests)
 library(pROC)
 library(grpreg)
 library(pec)
+library(ggfortify)
+library(survRM2)
+library(kableExtra)
+library(broom)
 ```
 
 
 ## Motivation
 
-The motivation of the analysis is to reveal the association between time to death in 30 days and right heart catheterization (RHC). The main predictor of the model is right heart catheterization, we also adjust the model with all the other variables in the dataset. We want to know whether right heart catheterization actually improve the patients' survival rate in 30 days adjusted by other baseline variables.
+[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. 
+
+The motivation of the analysis is to reveal the association between time to death in 30 days and right heart catheterization (RHC). The main predictor of the model is right heart catheterization, we also adjust the model with all the other variables in the dataset. We want to know whether right heart catheterization actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
 
 
-[Right heart catheterization (RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. 
-
-You can find the description of the data from [http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html)
-
-
-## Data Import
-
-By reading the description of the data, we need to exclude several variables in the dataset. The variables including all the enrollment time, discharge time and so on, and the variables with percentage of missing value larger than 20% are also excluded.
-
-We choose 20% as an arbitrary number since we do not want to lose too much information from the whole data set.
-
-We also manully exclude some variables since those variables are not in our interest.
-
-
-```{r}
-rhc <- read.csv('/Users/hanchao/Desktop/rhc.csv')
-rhc <- rhc[,-1]
-var.vector <- c(
-"cat2",
-"sadmdte",
-"dschdte",
-"dthdte",
-"lstctdte",
-"death",
-"surv2md1",
-"ptid"
-)
-var.which <- NULL
-for (i in var.vector) {
-  var.which[i] <- which(names(rhc) == i)
-}
-
-var.which2 <- NULL
-for (i in names(rhc)) {
-  if( sum(is.na(rhc[,i]))/nrow(rhc) > 0.2 ){
-    var.which2[i] <- which(names(rhc) == i)
-  }
-}
-
-rhc_DF <- rhc[,-c(var.which, var.which2)]
-```
+Even though receiving RHC had decreased survival time in general, the unmeasured confounders can partly explain the results.
 
 
 
-## Data Wrangling
 
-### 1. Check the type of the data
+## What is the data?
 
-We can print the summary and the type of the data first to take a look on the dataset. The summary of the data will give us some characteristics of the data such as mean median quantiles and frequency.
-
-The type of the data can show us whether the variable is stored as factor, string, int or number.
+[http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html)
 
 
-
-```{r}
-summary(rhc_DF)
-str(rhc_DF)
-```
-
-
-### 2. Outcome and time variables
-
-Changing the type of the data is also very important for survival analysis, and by checking the data, we also sometimes need to deal with variables with characters. In our data set, the status of having RHC or not is denoted with character. A way to adjust it is to force it into factor directly. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we pushed the character into a numeric number and deducted it by 1.
-
-We also used an easy way to change all the variable type to the right one by using a loop function. The main idea is that after observing the summary of the data, we can approximately say that the variables with mean larger than five should be continuous variables, the others should be a factor instead.
-
-
-```{r}
-for (i in names(rhc_DF)) {
-  if(is.numeric(rhc_DF[,i])){
-    if(mean(rhc_DF[,i], na.rm = T) < 5){
-      rhc_DF[,i] <- as.factor((rhc_DF[,i]))
-    }else{
-      rhc_DF[,i] <- ((rhc_DF[,i]))
-    }
-  }
-}
-rhc_DF$dth30 <- as.numeric(rhc_DF$dth30) - 1
-rhc_DF$swang1 <- as.numeric(rhc_DF$swang1) - 1
-rhc_DF$alb1 <- as.numeric(as.character(rhc_DF$alb1))
-
-
-rhc_DF$bili1 <- as.numeric(as.character(rhc_DF$bili1))
-rhc_DF$crea1 <-  as.numeric(as.character(rhc_DF$crea1))
-rhc_DF$pot1 <- as.numeric(as.character(rhc_DF$pot1))
-str(rhc_DF)
-```
-
-
-## Exploratory data analysis
-
-For the numeric variables, we should check the usually before doing any test. QQ-plot is an easy way to test normality, there are several tests, Shapiro for example, but we won't use it here, and those tests are not frequently used anyway.
+The dataset pertains to day 1 of hospitalization, i.e., the "treatment" variable swang1 is whether or not a patient received an RHC (also called the Swan-Ganz catheter) on the first day in which the patient qualified for the SUPPORT study (see above). 
 
 
 
-```{r, fig.height=7}
-nonnormal <- NULL
-par(mfrow = c(4,5))
-for (i in 1:ncol(rhc_DF)) {
-  if( is.numeric(rhc_DF[,i]) ){
-    qqnorm(rhc_DF[,i], main = names(rhc_DF)[i])
-    qqline(rhc_DF[,i])
-    nonnormal[i] <- names(rhc_DF)[i]
-  }
-}
-```
-
-### 1. Data Description
 
 
-| Tables   |      Are      |
+| variable names   |      meaning      |
 |---------------------------------|---------------------------------|
 | Age                                  | Age                                                                                                                                                                 |
 | Sex                                  | Sex                                                                                                                                                                 |
@@ -223,6 +133,166 @@ for (i in 1:ncol(rhc_DF)) {
 
 
 
+## Data Import
+
+The followings are some of the libraries that we will use later in our analysis.
+
+
+
+```{r}
+library(tableone)
+library(tidyverse)
+library(survival)
+library(survminer)
+library(GGally)
+library(survRM2)
+library(knitr)
+library(kableExtra)
+library(randomForestSRC)
+library(ggRandomForests)
+library(pROC)
+library(grpreg)
+library(pec)
+```
+
+
+We import the effectiveness of RHC in the initial care of critically ill patients dataset. 
+
+
+
+
+```{r}
+rhc <- read.csv('/Users/hanchao/Desktop/rhc.csv')
+rhc <- rhc[,-1]
+head(rhc)[,1:12]
+```
+
+
+
+
+By reading the description of the data, we need to exclude several variables in the dataset. The variables including all the enrollment time, discharge time and so on, and the variables with the percentage of the missing value larger than 20% are also excluded (We choose 20% as an arbitrary number since we do not want to lose too much information from the whole data set).
+
+
+
+The variables that we excluded：
+
+| Vairbale Name | Meaning |
+|---------------|---------------------------------------------|
+| ptid       | Patient ID         |
+| cat2          | Secondary disease category         |
+| sadmdte       | Study Admission Date         |
+| dschdte       | Hospital Discharge Date         |
+| dthdte       | Date of Death         |
+| lstctdte       | Date of Last Contact        |
+| death       |     Death at any time up to 180 Days    |
+| surv2md1       |    Support model estimate of the prob. of surviving 2 months |
+
+
+
+```{r}
+rhc <- read.csv('/Users/hanchao/Desktop/rhc.csv')
+rhc <- rhc[,-1]
+var.vector <- c(
+"cat2",
+"sadmdte",
+"dschdte",
+"dthdte",
+"lstctdte",
+"death",
+"surv2md1",
+"ptid"
+)
+var.which <- NULL
+for (i in var.vector) {
+  var.which[i] <- which(names(rhc) == i)
+}
+var.which2 <- NULL
+for (i in names(rhc)) {
+  if( sum(is.na(rhc[,i]))/nrow(rhc) > 0.2 ){
+    var.which2[i] <- which(names(rhc) == i)
+  }
+}
+
+rhc_DF <- rhc[,-c(var.which, var.which2)]
+```
+
+
+
+## Data Wrangling
+
+### 1. Check the type of the data
+
+We can print the summary and the type of data first to take a look at the dataset. The summary of the data will give us some characteristics of the data such as mean, median quantiles, and frequency.
+
+The type of data can show us whether the variable is stored as factor, string, int or number.
+
+
+
+```{r}
+summary(rhc_DF)[,1:12]
+```
+
+
+
+### 2. Outcome and time variables
+
+Changing the type of the data is also very important for survival analysis, and by checking the data, we also sometimes need to deal with variables denoted as characters. In our data set, the status of having RHC or not is not numeric. A way to adjust is to force it into factor directly. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we pushed the character into a numeric number and deducted it by 1 to get the numeric denotation that we want.
+
+
+We also used an easy way to change all the variable type to the right one by using a loop. The main idea is that after observing the summary of the data, we can approximately say that the variables with mean larger than five should be continuous variables, the others should be binary or other factors with more levels instead.
+
+
+```{r}
+for (i in names(rhc_DF)) {
+  if(is.numeric(rhc_DF[,i])){
+    if(mean(rhc_DF[,i], na.rm = T) < 5){
+      rhc_DF[,i] <- as.factor((rhc_DF[,i]))
+    }else{
+      rhc_DF[,i] <- ((rhc_DF[,i]))
+    }
+  }
+}
+
+rhc_DF$dth30 <- as.numeric(rhc_DF$dth30) - 1
+rhc_DF$swang1 <- as.numeric(rhc_DF$swang1) - 1
+rhc_DF$alb1 <- as.numeric(as.character(rhc_DF$alb1))
+
+rhc_DF$bili1 <- as.numeric(as.character(rhc_DF$bili1))
+rhc_DF$crea1 <-  as.numeric(as.character(rhc_DF$crea1))
+rhc_DF$pot1 <- as.numeric(as.character(rhc_DF$pot1))
+```
+
+
+## Exploratory data analysis
+
+For the numeric variables, we should check the usually before doing any test. QQ-plot is an easy way to test normality, there are several tests, Shapiro, for example. However, we won't use other tests except for QQ-plot here.
+
+
+
+```{r, fig.height=7}
+nonnormal <- NULL
+par(mfrow = c(4,6))
+for (i in 1:ncol(rhc_DF)) {
+  if( is.numeric(rhc_DF[,i]) ){
+    qqnorm(rhc_DF[,i], main = names(rhc_DF)[i])
+    qqline(rhc_DF[,i])
+    nonnormal[i] <- names(rhc_DF)[i]
+  }
+}
+```
+
+
+Basically, all of the numeric variables are not normally distributed. It matters to the demography analysis in the later part of our study since we would use Wilcoxon test instead of t-test later.
+
+
+
+
+
+### 1. Demographic
+
+**Stratified by Right Heart Catheterization**
+
+
 
 ```{r, results='hide'}
 CreateTableOne(data = rhc_DF, strata = 'swang1') %>%
@@ -233,7 +303,6 @@ tblprint2[,4][tblprint2[,4] == 'nonnorm'] <- 'Wilcoxon'
 ```
 
 
-### 2. Demographic
 
 ```{r}
 kable(tblprint2 [-c(30,39),], "html", caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
@@ -249,76 +318,127 @@ The demographics can help us understand the one to one relation between right he
 
 
 
+**Stratified by death in 30 days**
+
+
+```{r, results='hide'}
+CreateTableOne(data = rhc_DF, strata = 'dth30') %>%
+  print(nonnormal = nonnormal) -> tblprint2
+
+tblprint2[c(2, 12, 16:27, 29, 52:53, 60:70, 74),4] <- 'Chi-sq'
+tblprint2[,4][tblprint2[,4] == 'nonnorm'] <- 'Wilcoxon'
+```
+
 ```{r}
-#ggpairs(rhc_DF, title = "Within Academic Variables")
+kable(tblprint2 [-c(30,39),], "html", caption = "Stritified by death in 30 days", booktabs = T) %>%
+  kable_styling('responsive') %>%
+  add_indent(c(3:11, 13:15,52:57,69:71,73:76 ))
 
 ```
 
 
+
+With the two tables above, we know that most of the covariates that we have already included in our dataset are associated with both death in 30 days and having the right catheterization or not. That makes them as confounders in our study.
+
+### 2. Data visulization
+
+
+```{r, fig.height=7}
+visu_rhc_DF <- rhc_DF
+visu_rhc_DF$swang1 <- as.factor(visu_rhc_DF$swang1)
+visu_rhc_DF$dth30 <- as.factor(visu_rhc_DF$dth30)
+ggpairs(visu_rhc_DF[,c('swang1','age', 'sex', 'race', 'chfhx', 'amihx', 'dementhx', 'dth30')], columnLabels = c('RHC','age', 'sex', 'race', 'Congestive Heart Failure', 'Definite Myocardial Infarction', 'Dementia, Stroke or Cerebral Infarct, Parkinson’s Disease', 'death in 30 days'))
+
+```
+
+
+
+The ggpair is a good way of visualizing the data, and we choose some variables to make the visualization. 
+
+After demographic analysis, we got that the p-value, and we know there are associations, the visualization helps us to understand better what the associations look like. 
+
+The plots on the diagonal are the distribution of variables, and plots on the sides next to the diagonal are the associations between two selected variables.
 
 
 ### 3. Kaplan Meier (non-parametric)
 
 
-The Kaplan Meier estimator is a non-parametric method that used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
+The Kaplan Meier estimator is a non-parametric method used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
 
-
-#### What is Y and X
-
-description of what model estimating and survival probability
 
 
 
 ```{r}
 fit <- survfit(Surv(t3d30, dth30) ~ swang1, data = rhc_DF)
+fit
 ```
 
-The t3d30 is the survival time of each patients and dth30 is the dummy variable that indicate wheter the patient survived or dead in 30 days.
+
+
+The t3d30 is the survival time of each patient and dth30 is the dummy variable that indicates whether the patient survived or dead in 30 days.
+
+The total number of the patients having right catheterization is 2184, and 830 of them died in 30 days(38%). The total number of the patients not having right catheterization is 3551, and 1088 of them died in 30 days(30.6%).
+
 
 
 
 ```{r}
-ggsurvplot(
-   fit,                     # survfit object with calculated statistics.
-   data = rhc_DF,           # data used to fit survival curves. 
-   risk.table = F,       # show risk table.
-   pval = TRUE,             # show p-value of log-rank test.
-   conf.int = TRUE,         # show confidence intervals for 
-                            # point estimaes of survival curves.
-   ggtheme = theme_minimal(), # customize plot and risk table with a theme.
-   risk.table.y.text.col = T, # colour risk table text annotations.
-   risk.table.y.text = FALSE, # show bars instead of names in text annotations
-                            # in legend of risk table
-  ylim = c(0.6,1)
-)
 
-
+autoplot(fit, conf.int = FALSE) +
+  labs(title = 'Kaplan Meier Plot', y = 'survival probability', color = 'RHC', fill = 'RHC') +
+  theme_bw() +
+  scale_color_manual(labels = c("No RHC", "Yes RHC"), values = c("red", "blue"))
 
 ```
 
 
 
-The Kaplan Meier plot shows us the survival rate without stratified by having the right heart catheterization without any covariates adjustment.
 
-The x-axis is the survival time, and the y-axis is the survival probability. It looks like a step function since the probability changes for each day.
 
-For example, at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about 77% and 82% for patients not having the right catheterization. The survival rate changes to 67% in 20 days for those had right heart catheterization and 74% for those had not had a right heart catheterization. Finally, in 30 days, the survival becomes 62% for those who had RHC and 70% for those who had not had RHC.
+The Kaplan Meier plot shows us the survival rate stratified by having the right heart catheterization without any covariates adjustment.
 
-The results seem to show that having the RHC actually decrease the patients' survival probability. Does it make sense to give patients this surgery in the future? You would probably say that we shouldn't recommend patients this surgery anymore. However, does it make sense? Why are doctors still recommending patients having this surgery?
+The x-axis is the survival time, and the y-axis is the survival probability. It looks like a step function since the probability changes each day(the data only record the event daily).
+
+Some of the description of the plot: at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about 62.00% and 69.36% for patients not having the right catheterization. 
+
+
+
+
+```{r}
+rmst <- rmst2(rhc_DF$t3d30, rhc_DF$dth30, arm = rhc_DF$swang1, tau = 30, covariates = NULL)
+
+rmst$unadjusted.result %>%
+  tidy() -> tbl.rmst
+
+tbl.rmst %>%
+  mutate(CI = paste('(',signif(lower..95,3), ',',signif(upper..95,3),')')) -> tbl.rmst
+
+tbl.rmst <- tbl.rmst[,c(1,2,6,5)]
+colnames(tbl.rmst) <- c('Comparision', 'Estiamte', '95% CI', 'P-value')
+tbl.rmst$`P-value`[tbl.rmst$`P-value` < 0.001] <- '<0.001'
+tbl.rmst$Estiamte <- signif(tbl.rmst$Estiamte, 3)
+kable(tbl.rmst[c(1,2),], "html", caption = "Restricted mean survival time", booktabs = T) %>%  kable_styling('responsive')
+  
+
+```
+
+
+
+The results show that having RHC decrease the patients' restricted mean survival time by 1.5 days. It seems that RHC is causing patients to live less long. However, it's the result without any covariate adjustment. What if we want to adjust the model by the variables that we are interested in?
 
 
 
 ## Proportional Hazard Model (Cox model)
 
-In logistic regression, we know that whether an event is going to happen or not, and you could see survival analysis as an updated version of logistic regression where you could know when that even would happen.
+In logistic regression, we know that whether an event is going to happen or not, and you could see survival analysis as an updated version of logistic regression where you could see when that even would happen.
 
 Cox model, also known as proportional hazards models are a class of parametric survival models in statistics. It includes variables like the time that passes, the event occurs and other covariates that used to adjust the association of survival rate and time.
 
-A fundamental assumption of the cox model is that the model assumes the hazard is a constant with the time passing by.
+A fundamental assumption of the cox model is that the model assumes the hazard is constant with the time passing by.
 
 ### 1. Right censoring
 
-We would only introduce right censoring in our case study, for the right censoring, we just know that the patients are even-free up until the censoring time.
+We would only introduce right censoring in our case study, for the right censoring, we know that the patients are even-free up until the censoring time.
 
 ### 2. How do we record survival data
 
@@ -377,7 +497,7 @@ where $\beta$ is the coefficients matrix and the X is the covariates matrix.
 
 ```{r}
 fit1 <- coxph(Surv(t3d30,dth30) ~ . + .^2 ,data = rhc_DF)
-fit1
+
 ```
 
 
@@ -387,6 +507,7 @@ We fit the model with all the variables and their pairwise interactions. Since w
 ### 6. Adjusted Survival Plot
 
 We could estimate the new survival plot by inputting the main predictor RHC, we first code all RHC as 0, predict the survival rate and input all RHC as 1, and predict the survival rate again.
+
 
 
 ```{r}
@@ -406,11 +527,6 @@ After extracting the survival rate, we can see that the effect of Right Heart Ca
 time1 <- survfit(fit1, newdata = rhc0)$surv
 time2 <- survfit(fit1, newdata = rhc1)$surv
 
-rowMeans(time1) %>%
-  plot(type = "l", col = "blue", main = 'RMST-Cox model', xlab = 'Days', ylab = 'Survival Rate')
-rowMeans(time2) %>%
-  lines(col = "red")
-legend('topright', c('No RHC','RHC'), col = c('blue','red'), pch = 20)
 
 dat.time <- data.frame(time1 = rowMeans(time1), time2 = rowMeans(time2))
 ggplot(dat.time) +
@@ -418,16 +534,43 @@ ggplot(dat.time) +
   geom_step(aes(x =1:length(dat.time$time2) ,y = time2, col = 'blue')) +
   theme_survminer() +
   theme_minimal() + labs(colour="Strata", x = "survival time", y = "probability", colour = 'RHC',  title = 'Survival Plot') +
-  scale_color_manual(labels = c("No RHC", "Yes RHC"), values = c("red", "blue"))
+  scale_color_manual(labels = c("Yes RHC", "No RHC"), values = c("red", "blue"))
 
   
 
 
 ```
 
-Why does it happen?
-
-When we see the Kaplan Meier plot, the reason that the people who had the RHC having less survival probability are that they are sicker than others. They need the surgery because they are sicker. It makes them less possible to survival in general, however, after adjusting the baseline variables, we can see that RHC is actually helping patients to live longer.
 
 
+
+```{r}
+meantime2 <- signif(mean(dat.time$time2) * 30 ,3)
+uptime2 <- signif(quantile(dat.time$time2, 0.975) ,3)
+lowtime2 <- signif(quantile(dat.time$time2, 0.025), 3)
+
+meantime1 <- signif(mean(dat.time$time1) * 30 ,3)
+uptime1 <- signif(quantile(dat.time$time1, 0.975), 3)
+lowtime1 <- signif(quantile(dat.time$time1, 0.025), 3)
+
+meantime2 - meantime1
+
+tbl.rmst$Estiamte <- c(meantime2 - meantime1, signif(meantime2 / meantime1,3), NA)
+tbl.rmst$`95% CI` <- c( paste('(', signif(lowtime2 - lowtime1,3), ',', (uptime2 - uptime1),')'), paste('(', signif(lowtime2 / lowtime1,3), ',', signif(uptime2 / uptime1,3),')'), NA)
+
+
+kable(tbl.rmst[c(1,2),c(1,2,3)], "html", caption = "Restricted mean survival time", booktabs = T) %>%  kable_styling('responsive')
+```
+
+
+After adjusting the covariates that we already have had, having RHC decreased the mean survival time of the patients by 0.9 days. Comparing to the result with no adjustment, the decrease of the days decreased 0.6 days, Which means the result after adjusting all covariates show that RHC is less harmful than without modification.
+
+
+
+
+### Reference
+
+
+
+Lin DY, Psaty BM, Kronmal RA (1998): Assessing the sensitivity of regression results to unmeasured confounders in observational studies. Biometrics 54:948-963 for useful methods for sensitivity analysis, one of which was applied to the RHC results.
 
