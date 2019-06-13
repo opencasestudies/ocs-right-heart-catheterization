@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = F)
 knitr::opts_chunk$set(warning = F)
 
-#library(tableone)
+library(tableone)
 library(tidyverse)
 library(survival)
 library(survminer)
@@ -42,12 +42,16 @@ library(finalfit)
 
 # Motivation
 
-[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. 
+[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. Here is the video which enables you understand how it works.
 
-The motivation of the analysis is to reveal the association between time to death in 30 days and right heart catheterization (RHC). The main predictor of the model is right heart catheterization, we also adjust the model with all the other variables in the dataset. We want to know whether right heart catheterization actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
+<div align="center">
+<iframe width="550" height="300" src="https://www.youtube.com/embed/xr-VkxUwceQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
+</div>
 
+It is often the case that a foreign objects enters the humen body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief is that it is beneficial and safe, so it is difficult to design a randomized controlled trail(RCT). 
 
-Even though receiving RHC had decreased survival time in general, the unmeasured confounders can partly explain the results.
+Without RCTs of RHC, the only way to evaluate its effectness is observational study. The motivation of this case study is to reveal the association between time to death in 30 days and RHC based on an observational dataset. The main predictor of the model is RHC, we also adjust the model with all the other variables in the dataset. We want to know whether RHC actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
 
 
 The libraries used in this study are listed in the following table, 
@@ -60,180 +64,178 @@ along with their purpose in this particular case study:
 In order to run this code please ensure you have these packages installed. 
 
 The learning objectives for this case study include:
+
+  * propensity score matching
+  * multivariate logistic regression
   * survival analysis
   
 
 # What is the data?
 
-[Right heart catheterization](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv): The dataset pertains to day 1 of hospitalization, i.e., the treatment variable `swang1` is whether or not a patient received an RHC (also called the Swan-Ganz catheter) on the first day in which the patient qualified for the study. The variable description can be found [here](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html). We just show part of them below.
+[Right heart catheterization](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv): The dataset pertains to day 1 of hospitalization, i.e., the treatment variable `swang1` is whether or not a patient received an RHC (also called the Swan-Ganz catheter) on the first day in which the patient qualified for the study. The variable description can be found [here](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html).
 
-| variable names   |      meaning      |
-|---------------------------------|---------------------------------|
-| Age                                  | Age                                                                                                                                                                 |
-| Sex                                  | Sex                                                                                                                                                                 |
-| Race                                 | Race                                                                                                                                                                |
-| Edu                                  | Years of education                                                                                                                                                  |
-| Income                               | Income                                                                                                                                                              |
-| Ninsclas                             | Medical insurance                                                                                                                                                   |
-| Cat1                                 | Primary disease category                                                                                                                                            |
-| Cat2                                 | Secondary disease category                                                                                                                                          |
-|                                      |                                                                                                                
-| Ca                                   | Cancer                                                                                                                                                              |
-| Surv2md1                             | Support model estimate of the prob. of surviving 2 months                                                                                                           |
-| Aps1                                 | APACHE score                                                                                                                                                        |
-| Scoma1                               | Glasgow Coma Score                                                                                                                                                  |
-| Wtkilo1                              | Weight                                                                                                                                                              |
-| Temp1                                | Temperature                                                                                                                                                         |
-| Meanbp1                              | Mean blood pressure                                                                                                                                                 |
-| Resp1                                | Respiratory rate                                                                                                                                                    |
-| Hrt1                                 | Heart rate                                                                                                                                                          |
-|                                      |                                                                                                                                                                     |
-| Swang1                               | Right Heart Catheterization (RHC)                                                                                                                                   |                          
-| Ptid                                 | Patient ID                                   |
 
 # Data Import
 
-If the data is an online resources, it would be updated by its website sometime. Instead of downloading and saving that file as `.csv` every time, importing data from the web directly is more reasonable. We can use the `read.csv()` function to import this `.csv` file from internet. The argument for `read.csv()` function, will be the URL of the data.
+The data is an online resources, we will import data from the web directly  with `read_csv()` function.
 
 ```{r}
 file <- "http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv"
-rhc <- read.csv(file, header = TRUE)
+rhc <- read_csv(file)
 ```
 
 
 # Data Wrangling
 
-## Data cleaning
+## Variable selection
 
-By reading the description of the data, we need to exclude several variables in the dataset. The variables including all the enrollment time, discharge time and so on but we just care about death in 30 days. 
-
-The variables that we would like to excluded.
-
-| Vairbale Name | Meaning |
-|---------------|---------------------------------------------|
-| X       | Serial number |
-| ptid    | Patient ID  |
-| cat2    | Secondary disease category  |
-| sadmdte | Study Admission Date        |
-| dschdte | Hospital Discharge Date     |
-| dthdte  | Date of Death  |
-| lstctdte| Date of Last Contact        |
-| death   | Death at any time up to 180 Days |
-| surv2md1| Support model estimate of the prob. of surviving 2 months |
+There are totally `r ncol(rhc)` variables and `r nrow(rhc)` observations in the dataset. By reading the description of the data, we just want to select several variables here. When you try to reproduce this case study, you can try to choose others which you are interested in.  
 
 ```{r}
-var.vector <- c(
-"X",
-"cat2",
-"sadmdte",
-"dschdte",
-"dthdte",
-"lstctdte",
-"death",
-"surv2md1",
-"ptid"
-)
-var.which <- NULL
-for (i in var.vector) {
-  var.which[i] <- which(names(rhc) == i)
-}
+rhc_df <- 
+  rhc %>% 
+    select(age = age,
+           sex = sex,
+           race = race,
+           education = edu,
+           income = income,
+           med_ins = ninsclas,
+           disease = cat1,
+           cancer = ca,
+           weight = wtkilo1,
+           temp = temp1,
+           bp = meanbp1,
+           resp = resp1,
+           hrt = hrt1,
+           pf = pafi1,
+           pc = paco21,
+           ph = ph1,
+           death = dth30,
+           time = t3d30,
+           RHC = swang1)
+#summary(rhc_df)
 ```
 
-And the variables with the percentage of the missing value larger than 20% are also excluded (We choose 20% as an arbitrary number since we do not want to lose too much information from the whole data set).
+According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html),the description of variables we interested in is given below.
+
+| variable names   |      meaning      |
+|---------------------------------|---------------------------------|
+| age                                  | Age                                                                                                                                                                 |
+| sex                                  | Sex                                                                                                                                                                 |
+| race                                 | Race                                                                                                                                                                |
+| education                            | Years of education                                                                                                                                                  |
+| income                               | Income                                                                                                                                                              |
+| med_ins                              | Medical insurance                                                                                                                                                   |
+| disease                              | Primary disease category                                                                                                                                            |
+| cancer                               | Cancer                                                                                                                                                              |
+| weight                               | Weight                                                                                                                                                              |
+| temp                                 | Temperature                                                                                                                                                         |
+| bp                                   | Mean blood pressure                                                                                                                                                 |
+| resp                                 | Respiratory rate                                                                                                                                                    |
+| rth                                  | Heart rate                                                                                                                                                          |
+| pf                                   | PaO2/FIO2 ratio,ratio of arterial oxygen partial pressure to fractional inspired oxygen                                                                             |
+| pc                                   | PaCo2 ratio,partial pressure of arterial carbon dioxide                                                                                                             |
+| ph                                   | PH                                                                                                                                                                  |
+| time                                 | Survival time of each patient in 30 days                                                                                                                            |
+| death                                | Indicates whether the patient survived or dead in 30 days                                                                                                           |
+| RHC                                  | Right heart catheterization |
+
+
+# Exploratory data analysis
+
+Our main topic is to investigate the influence of RHC, so let's devide the dataset into 'RHC' group and 'No RHC' group and try to find some difference between them. 
+
+The table below will give us some characteristics of the data such as mean for numerical data, frequency for category data and p-value.
+
 
 ```{r}
-var.which2 <- NULL
-for (i in names(rhc)) {
-  if( sum(is.na(rhc[,i]))/nrow(rhc) > 0.2 ){
-    var.which2[i] <- which(names(rhc) == i)
-  }
-}
+explanatory = c ("age", "sex", "race", "education",
+                 "income", "cancer", "weight", "temp", 
+                 "bp","resp","hrt", "pf", "pc",
+                 "ph", "death")
+
+tblprint <- rhc_df %>%
+  summary_factorlist('RHC', explanatory, p = TRUE)
+
+#kable(tblprint, "html")
 ```
 ```{r}
-rhc_df <- rhc[,-c(var.which, var.which2)]
+tblprint2 <- CreateTableOne(data = rhc_df, strata = 'RHC') 
+
+#kable(tblprint2, "html", caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
+#  kable_styling('responsive')
 ```
 
-`sum(is.na(rhc[,i]))` is used to calculate the total missing value for variable `i`. Then divide it with `nrow(rhc)` and we will receive the proportion of missing value for this variable.
+The unadjusted outcomes indicate that patients managed with RHC were more likely to be white male, to have private insurance, to enter the study of ARF, MOSF or CHF. Patients with RHC were less likely to have cancer. 
 
-After this step, we keep `r nrow(rhc_df)` rows and `r ncol(rhc_df)` columns.
+## Data visualization
 
-## Check the type of the data
+In order to further understand the difference between 'No RHC' and 'RHC' group, we would like to use `ggplot2` to create some plots.
 
-We can print the summary and the type of data first to take a look at the dataset. The summary of the data will give us some characteristics of the data such as mean, median quantiles, and frequency.
+```{r, fig.width=11, fig.height=5}
+p1 <- rhc_df %>% 
+        ggplot(aes(x = RHC, fill = sex)) + 
+          geom_bar() + ggtitle('distribution of RHC')
+p2 <- rhc_df %>% 
+        ggplot(aes(x = RHC, fill = race)) + 
+          geom_bar(position = "fill") + 
+          ggtitle('distribution of RHC') + 
+          ylab('proportion')
 
-The type of data can show us whether the variable is stored as factor, string, int or number.
+p3 <- rhc_df %>% 
+        ggplot(aes(x = RHC, fill = death)) + 
+          geom_bar(position = "fill") + 
+          ggtitle('distribution of RHC') + 
+          ylab('proportion')
 
-```{r}
-rhc_df %>% 
-  group_by(swang1) %>%
-  summarise_if(is.numeric, funs(n(),mean))
+ggarrange(p1, p2, p3, ncol=3, nrow=1)
 ```
-```{r}
-rhc_df %>% 
-  select(swang1,sex) %>%
-  group_by(swang1,sex) %>%
-  summarise(n())
+
+```{r, fig.width=11, fig.height=5}
+p4 <- rhc_df %>% 
+        ggplot(aes(x = RHC, y = age, color = RHC)) + 
+          geom_boxplot() + ggtitle('distribution of age')
+p5 <- rhc_df %>% 
+        ggplot(aes(x = RHC, y = bp, color = RHC)) + 
+          geom_boxplot() + ggtitle('distribution of blood pressure')
+p6 <- rhc_df %>% 
+        ggplot(aes(x = RHC, y = pf, color = RHC)) + 
+          geom_boxplot() + ggtitle('distribution of PaO2/FiO2')
+
+         
+ggarrange(p4, p5,p6, ncol=3, nrow=1)
 ```
-```{r}
-explanatory = c ('sex', 'age', 'race',
-'ca', 'dth30', 'temp1', 'hrt1','meanbp1')
-rhc_df %>%
-  summary_factorlist('swang1', explanatory)
-```
+
+# Data analysis
+
+## Survival analysis
+
+[survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) is a branch of statistics for analyzing the expected duration of time until one or more events happen, such as death in biological organisms and failure in mechanical systems. 
 
 ## Outcome and time variables
 
 Changing the type of the data is also very important for survival analysis, and by checking the data, we need to deal with variables denoted as characters. In our data set, the status of having RHC or not is not numeric. A way to adjust is to force it into factor directly. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we pushed the character into a numeric number and deducted it by 1 to get the numeric denotation that we want.
 
-
-We also used an easy way to change all the variable type to the right one by using a loop. The main idea is that after observing the summary of the data, we can approximately say that the variables with mean larger than five should be continuous variables, the others should be binary or other factors with more levels instead.
-
+Here we use function `as.numeric()`.
 
 ```{r}
-for (i in names(rhc_df)) {
-  if(is.numeric(rhc_df[,i])){
-    if(mean(rhc_df[,i], na.rm = T) < 5){
-      rhc_df[,i] <- as.factor((rhc_df[,i]))
-    }else{
-      rhc_df[,i] <- ((rhc_df[,i]))
-    }
-  }
-}
-
-rhc_df$dth30 <- as.numeric(rhc_df$dth30) - 1
-rhc_df$swang1 <- as.numeric(rhc_df$swang1) - 1
-rhc_df$alb1 <- as.numeric(as.character(rhc_df$alb1))
-rhc_df$bili1 <- as.numeric(as.character(rhc_df$bili1))
-rhc_df$crea1 <-  as.numeric(as.character(rhc_df$crea1))
-rhc_df$pot1 <- as.numeric(as.character(rhc_df$pot1))
+rhc_df$death <- as.numeric(as.factor(rhc_df$death)) -1
+rhc_df$RHC <- as.numeric(as.factor(rhc_df$RHC)) - 1
 ```
-
-
-# Exploratory data analysis
-
-
-
-
-
-# Data analysis
-
-## Propensity socre
-
-In the statistical analysis of observational data, [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) is a statistical matching technique that attempts to estimate the effect of a treatment, policy, or other intervention by accounting for the covariates that predict receiving the treatment. PSM attempts to reduce the bias due to confounding variables that could be found in an estimate of the treatment effect obtained from simply comparing outcomes among units that received the treatment versus those that did not. 
-
-## Survival analysis
-
 
 ### Kaplan Meier (non-parametric)
 
-
-The Kaplan Meier estimator is a non-parametric method used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
-
+The [Kaplan Meier estimator](https://en.wikipedia.org/wiki/Kaplan–Meier_estimator) is a non-parametric method used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
 
 ```{r}
-fit <- survfit(Surv(t3d30, dth30) ~ swang1, data = rhc_df)
+fit <- survfit(Surv(time, death) ~ RHC, data = rhc_df)
+fit
+```
+
+The total number of the patients having right catheterization is `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 1, na.rm = TRUE)-fit$n.censor[58]` of them died in 30 days(38%). The total number of the patients not having right catheterization is `r sum(rhc_df$RHC == 0, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them died in 30 days(30.6%).
+
+```{r}
 res.sum <- surv_summary(fit)
-head(res.sum[,1:6])
 ```
 
 * time: the time points on the curve.
@@ -246,42 +248,34 @@ head(res.sum[,1:6])
 * lower: lower end of confidence interval
 * strata: indicates stratification of curve estimation. If strata is not NULL, there are multiple curves in the result. The levels of strata (a factor) are the labels for the curves.
 
-
-
-The t3d30 is the survival time of each patient and dth30 is the dummy variable that indicates whether the patient survived or dead in 30 days.
-
-The total number of the patients having right catheterization is 2184, and 830 of them died in 30 days(38%). The total number of the patients not having right catheterization is 3551, and 1088 of them died in 30 days(30.6%).
-
 ```{r}
-
 autoplot(fit, conf.int = FALSE) +
   labs(title = 'Kaplan Meier Plot', 
        y = 'survival probability', color = 'RHC', fill = 'RHC') +
   theme_bw() +
   scale_color_manual(labels = c("No RHC", "Yes RHC"), values = c("red", "blue"))
-
 ```
 
-The Kaplan Meier plot shows us the survival rate stratified by having the right heart catheterization without any covariates adjustment.
+The Kaplan Meier plot shows us the survival rate stratified by having the RHC without any covariates adjustment.
 
 The x-axis is the survival time, and the y-axis is the survival probability. It looks like a step function since the probability changes each day(the data only record the event daily).
 
-Some of the description of the plot: at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about 62.00% and 69.36% for patients not having the right catheterization. 
+Some of the description of the plot: at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about `r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` and `r fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)` for patients not having the right catheterization. 
 
-```{r}
-psurv <- ggsurvplot(fit,
-       pval = TRUE, conf.int = TRUE,
-       linetype = "swang1", # Change line type by groups
-       ggtheme = theme_bw(), # Change ggplot2 theme
-       palette = c("#E7B800", "#2E9FDF"),
-      fun = "event"
-       )
-psurv
-```
+
+## Propensity socre
+
+In the statistical analysis of observational data, [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) is a statistical matching technique that attempts to estimate the effect of a treatment, policy, or other intervention by accounting for the covariates that predict receiving the treatment. PSM attempts to reduce the bias due to confounding variables that could be found in an estimate of the treatment effect obtained from simply comparing outcomes among units that received the treatment versus those that did not. 
+
+As we mentioned above, RHC is beneficial is the popular belief, which makes it harder to build a RCT. In ovservational studies, the treatment selection is confounded with patients   
+
+
+
+
 
 
 #```{r}
-#rmst <- rmst2(rhc_df$t3d30, rhc_df$dth30, arm = rhc_df$swang1, tau = 30, covariates = NULL)
+#rmst <- rmst2(rhc_df$t3d30, rhc_df$death, arm = rhc_df$RHC, tau = 30, covariates = NULL)
 #
 #rmst$unadjusted.result %>%
 #  tidy() -> tbl.rmst
@@ -372,7 +366,7 @@ where $\beta$ is the coefficients matrix and the X is the covariates matrix.
 
 
 #```{r}
-#fit1 <- coxph(Surv(t3d30,dth30) ~ . + .^2 ,data = rhc_df)
+#fit1 <- coxph(Surv(t3d30,death) ~ . + .^2 ,data = rhc_df)
 #
 #```
 
@@ -387,9 +381,9 @@ We could estimate the new survival plot by inputting the main predictor RHC, we 
 
 
 #```{r}
-#rhc0 <- rhc1 <- rhc_df
-#rhc0$swang1 <- 0
-#rhc1$swang1 <- 1
+#rhc0 <- RHC <- rhc_df
+#rhc0$RHC <- 0
+#RHC$RHC <- 1
 #```
 
 
@@ -401,7 +395,7 @@ After extracting the survival rate, we can see that the effect of Right Heart Ca
 
 #```{r}
 #time1 <- survfit(fit1, newdata = rhc0)$surv
-#time2 <- survfit(fit1, newdata = rhc1)$surv
+#time2 <- survfit(fit1, newdata = RHC)$surv
 #
 #
 #dat.time <- data.frame(time1 = rowMeans(time1), time2 = rowMeans(time2))
