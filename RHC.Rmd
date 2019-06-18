@@ -1,6 +1,6 @@
 ---
 title: "Case-study Right heart catheterization"
-author: "Kexin Wang, M.S."
+author: "Open Case Study Team"
 output:
   html_document:
     md_extensions: -startnum
@@ -28,7 +28,7 @@ library(survminer)
 library(GGally)
 library(survRM2)
 library(knitr)
-#library(kableExtra)
+library(kableExtra)
 #library(randomForestSRC)
 library(ggRandomForests)
 library(pROC)
@@ -37,6 +37,7 @@ library(pROC)
 library(ggfortify)
 library(broom)
 library(finalfit)
+library(MatchIt)
 ```
 
 
@@ -48,6 +49,7 @@ library(finalfit)
 <iframe width="550" height="300" src="https://www.youtube.com/embed/xr-VkxUwceQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
 </iframe>
 </div>
+[source: https://www.youtube.com/embed/xr-VkxUwceQ ]
 
 It is often the case that a foreign objects enters the humen body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief is that it is beneficial and safe, so it is difficult to design a randomized controlled trail(RCT). 
 
@@ -64,7 +66,7 @@ along with their purpose in this particular case study:
 In order to run this code please ensure you have these packages installed. 
 
 The learning objectives for this case study include:
-
+  * causal inference
   * propensity score matching
   * multivariate logistic regression
   * survival analysis
@@ -77,7 +79,7 @@ The learning objectives for this case study include:
 
 # Data Import
 
-The data is an online resources, we will import data from the web directly  with `read_csv()` function.
+The data is an online resources, we will import data from the web directly  with `read_csv()` function. This dataset was originally used in Connors et al. JAMA 1996;276:889-897, and has been made publicly available.
 
 ```{r}
 file <- "http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv"
@@ -143,34 +145,27 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 
 # Exploratory data analysis
 
-Our main topic is to investigate the influence of RHC, so let's devide the dataset into 'RHC' group and 'No RHC' group and try to find some difference between them. 
-
-The table below will give us some characteristics of the data such as mean for numerical data, frequency for category data and p-value.
+Our main topic is to investigate the influence of RHC, so let's devide the dataset into 'RHC' group and 'No RHC' group and try to find some difference between them. The demographics can help us understand the one to one relation between right heart catheterization and other symptoms.
 
 
-```{r}
-explanatory = c ("age", "sex", "race", "education",
-                 "income", "cancer", "weight", "temp", 
-                 "bp","resp","hrt", "pf", "pc",
-                 "ph", "death")
+```{r include=FALSE}
+CreateTableOne(data = rhc_df, strata = 'RHC') %>%
+  print() -> tblprint
 
-tblprint <- rhc_df %>%
-  summary_factorlist('RHC', explanatory, p = TRUE)
-
-#kable(tblprint, "html")
-```
-```{r}
-tblprint2 <- CreateTableOne(data = rhc_df, strata = 'RHC') 
-
-#kable(tblprint2, "html", caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
-#  kable_styling('responsive')
+tblprint[c(3,4, 9, 14, 21, 31, 43,45),4] <- 'Chi-sq'
 ```
 
-The unadjusted outcomes indicate that patients managed with RHC were more likely to be white male, to have private insurance, to enter the study of ARF, MOSF or CHF. Patients with RHC were less likely to have cancer. 
+```{r}
+kable(tblprint , "html", caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
+  kable_styling('responsive') %>%
+  add_indent(c(5:7, 10:13,15:20,22:30,32:34))
+```
+
+What do you see? Take a moment to reflect on what these differences suggest for the relationship of interest. The unadjusted outcomes indicate that patients managed with RHC were more likely to be white male, to have private insurance, to have under $11k income, to enter the study of ARF, MOSF or CHF. Patients with RHC were less likely to have cancer. 
 
 ## Data visualization
 
-In order to further understand the difference between 'No RHC' and 'RHC' group, we would like to use `ggplot2` to create some plots.
+Data visuzlization is adjective considering it enables us to get a grasp on the difference between 'No RHC' and 'RHC' group. We would like to use `ggplot2` to create some plots.
 
 ```{r, fig.width=11, fig.height=5}
 p1 <- rhc_df %>% 
@@ -183,13 +178,16 @@ p2 <- rhc_df %>%
           ylab('proportion')
 
 p3 <- rhc_df %>% 
-        ggplot(aes(x = RHC, fill = death)) + 
+        ggplot(aes(x = RHC, fill = med_ins)) + 
           geom_bar(position = "fill") + 
           ggtitle('distribution of RHC') + 
           ylab('proportion')
 
 ggarrange(p1, p2, p3, ncol=3, nrow=1)
 ```
+These plots further prove our undersatnding of the characteristics of patients: patients managed with RHC were more likely to be white male, to have private insurance. Here we just provide three examples, but try more variables you are interested in!
+
+Besides three categorical variables, we also choose three continuous variables and visualize them.
 
 ```{r, fig.width=11, fig.height=5}
 p4 <- rhc_df %>% 
@@ -205,6 +203,9 @@ p6 <- rhc_df %>%
          
 ggarrange(p4, p5,p6, ncol=3, nrow=1)
 ```
+
+Age difference between two groups seem to be negligible while blood pressure and PaO2/FIO2 ratio vary largely. We see that patients who receive RHC tend to have lower blood pressure than patients who are not. Similiarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, which indicates that blood pressure and PaO2/FIO2 ratio are related to receiving RHC or not.
+
 
 # Data analysis
 
@@ -238,6 +239,8 @@ The total number of the patients having right catheterization is `r sum(rhc_df$R
 res.sum <- surv_summary(fit)
 ```
 
+The description of arguments in `res_sum` is given below:
+
 * time: the time points on the curve.
 * n.risk: the number of subjects at risk at time t
 * n.event: the number of events that occurred at time t.
@@ -248,12 +251,13 @@ res.sum <- surv_summary(fit)
 * lower: lower end of confidence interval
 * strata: indicates stratification of curve estimation. If strata is not NULL, there are multiple curves in the result. The levels of strata (a factor) are the labels for the curves.
 
+
 ```{r}
 autoplot(fit, conf.int = FALSE) +
   labs(title = 'Kaplan Meier Plot', 
        y = 'survival probability', color = 'RHC', fill = 'RHC') +
   theme_bw() +
-  scale_color_manual(labels = c("No RHC", "Yes RHC"), values = c("red", "blue"))
+  scale_color_manual(labels = c("No RHC", "RHC"), values = c("red", "blue"))
 ```
 
 The Kaplan Meier plot shows us the survival rate stratified by having the RHC without any covariates adjustment.
@@ -262,39 +266,142 @@ The x-axis is the survival time, and the y-axis is the survival probability. It 
 
 Some of the description of the plot: at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about `r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` and `r fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)` for patients not having the right catheterization. 
 
+```{r}
+rmst <- rmst2(rhc_df$time, rhc_df$death, arm = rhc_df$RHC, tau = 30, covariates = NULL)
 
-## Propensity socre
+rmst$unadjusted.result %>%
+  tidy() -> tbl.rmst
 
-In the statistical analysis of observational data, [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) is a statistical matching technique that attempts to estimate the effect of a treatment, policy, or other intervention by accounting for the covariates that predict receiving the treatment. PSM attempts to reduce the bias due to confounding variables that could be found in an estimate of the treatment effect obtained from simply comparing outcomes among units that received the treatment versus those that did not. 
+tbl.rmst %>%
+  mutate(CI = paste('(',signif(lower..95,3), ',',signif(upper..95,3),')')) -> tbl.rmst
 
-As we mentioned above, RHC is beneficial is the popular belief, which makes it harder to build a RCT. In ovservational studies, the treatment selection is confounded with patients   
+tbl.rmst <- tbl.rmst[,c(1,2,6,5)]
+colnames(tbl.rmst) <- c('Comparision', 'Estiamte', '95% CI', 'P-value')
+tbl.rmst$`P-value`[tbl.rmst$`P-value` < 0.001] <- '<0.001'
+tbl.rmst$Estiamte <- signif(tbl.rmst$Estiamte, 3)
+kable(tbl.rmst[c(1,2),], "html", caption = "Restricted mean survival time", booktabs = T) %>%  
+  kable_styling('responsive')
 
-
-
-
-
-
-#```{r}
-#rmst <- rmst2(rhc_df$t3d30, rhc_df$death, arm = rhc_df$RHC, tau = 30, covariates = NULL)
-#
-#rmst$unadjusted.result %>%
-#  tidy() -> tbl.rmst
-#
-#tbl.rmst %>%
-#  mutate(CI = paste('(',signif(lower..95,3), ',',signif(upper..95,3),')')) -> tbl.rmst
-#
-#tbl.rmst <- tbl.rmst[,c(1,2,6,5)]
-#colnames(tbl.rmst) <- c('Comparision', 'Estiamte', '95% CI', 'P-value')
-#tbl.rmst$`P-value`[tbl.rmst$`P-value` < 0.001] <- '<0.001'
-#tbl.rmst$Estiamte <- signif(tbl.rmst$Estiamte, 3)
-#kable(tbl.rmst[c(1,2),], "html", caption = "Restricted mean survival time", booktabs = T) %>%  #kable_styling('responsive')
-#  
-#
-#```
+```
 
 
+The results show receiving RHC decrease the patients' restricted mean survival time by `r abs(tbl.rmst[1,2])` days. It seems that RHC is causing patients to live shorter. However, it's the result without any covariate adjustment. What if we want to adjust the model by the variables that we are interested in?
 
-The results show that having RHC decrease the patients' restricted mean survival time by 1.5 days. It seems that RHC is causing patients to live less long. However, it's the result without any covariate adjustment. What if we want to adjust the model by the variables that we are interested in?
+
+## Propensity socre matching
+
+As we mentioned above, RHC is beneficial is the popular belief, which makes it harder to build a RCT. [Revelant paper]() explained this phenomenon like this: In ovservational studies, the treatment selection has connection with patients characteristics but also has link with the outcomes. For example, patients with lower blood pressure are more likely to get RHC, and they are also more likely to die. The effect of such treatment selection bias has been called "confounding by indication". To adjust for treatment selection bias, the variables that independently affect the decision to use or withhold the treatment must be identified and measured, that's why we introduce [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) here. 
+
+In the statistical analysis of observational data, PSM is a statistical matching technique that attempts to estimate the effect of a treatment, policy, or other intervention by accounting for the covariates that predict receiving the treatment. PSM attempts to reduce the bias due to confounding variables that could be found in an estimate of the treatment effect obtained from simply comparing outcomes among units that received the treatment versus those that did not. 
+
+The general procedures of PSM we would like to use include:
+
+* Run logistic regression:
+  + Dependent variable: Y = 1, if with RHC; Y = 0, otherwise.
+  + Choose appropriate condounders and apply multivariate logistic regression.
+  + Obtain propensity score, which is the predicted probability(p). Higher score indicates a higher probability of receiving the treatment.
+
+* One-to-one matching on propensity score:
+  + Randomly select one patient with RHC.
+  + Match this patient who has the cloest propensity score in all patients with RHC.
+  + Continue this matching untill all possible pairs were identified.
+  
+### Run logistic regression
+
+```{r}
+psm_glm <- glm(RHC ~ .-RHC-time-death, family = binomial(link = "logit"), 
+               data = rhc_df)
+```
+
+Using this model, we can now calculate the propensity score for each patient. It is simply the patient’s predicted probability of receiving RHC, given the estimates from the logit model. Then, we calculated this propensity score with the help of `predict()` and create a dataframe that has the propensity score as well as the patient’s actual treatment status.
+
+```{r}
+glm_df <- data.frame( p_rhc <-  predict(psm_glm, type = "response"),
+                     # Predicted probability of being assigned to RHC
+                      p_norhc <-  1 - p_rhc,
+                     # Predicted probability of being assigned to no RHC
+                      RHC <-  psm_glm$model$RHC)
+```
+
+After estimating the propensity score, histograms of the estimated propensity scores by treatment status is 
+
+```{r}
+glm_df %>%
+  mutate(RHC = ifelse(RHC == 1, "RHC", "No RHC")) %>%
+  ggplot(aes(x = p_rhc)) +
+  geom_histogram(color = "white") +
+  facet_wrap(~RHC) +
+  xlab("Probability of receiving RHC") +
+  theme_bw()
+```
+
+It is obvious the distribution of propensity score is not balanced, that's why we will move to the next step: one-to-one matching.
+
+
+### One-to-one matching on propensity score
+
+`matchit()` is the main command of the package [`MatchIt`](https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf), which enables parametric models for causal inference to work better by selecting well-matched subsets of the original treated and control groups.
+
+The arguments provided by `matchit()` are given below:
+* `formula`: Specifies the logistic regression formula you would like to use. Just equals to `psm_glm` we performed in last section.
+
+* `data`: Data frame (or database table name) containing the variables for analysis in the formula arguments.
+
+* `method`: Specifies the matching method. Default is "nearst(nearst neightbour matching)".
+
+* `caliper`:Nearest neighbor matching has a further restriction that the absolute difference in the propensity scores of matched subjects must be below some prespecified threshold (the caliper distance). [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using a caliper size of one-fifth of a standard deviation of the sample estimated propensity scores.
+
+* `ratio`: Indicates one-to-one matching — every treatment case will be matched with one control case. You can increase the number of control cases matched to each treatment case by increasing this number; usually this number is between 1 and 5.
+
+```{r}
+epsilon <- 0.2*sd(log(p_rhc/(1-p_rhc)))
+
+psm_mod <- matchit(RHC ~ age + sex + race + education +
+           income + med_ins + disease + cancer +
+           weight + temp + bp + resp + hrt + pf +
+           pc + ph, data = rhc_df, method = "nearest", 
+           caliper  = epsilon, ratio = 1)
+
+rhc_psm_df <- match.data(psm_mod)
+
+#head(rhc_psm_df)
+```
+
+Using `match.data()`, we can get the final dataset, `rhc_psm_df`. Note that the final dataset is smaller than the original: it contains `r dim(rhc_psm_df)[1]` observations, meaning that `r 0.5*dim(rhc_psm_df)[1]` pairs of treated and control observations were matched. It also contains a variable called distance, which is the propensity score. Now 
+
+```{r}
+rhc_psm_df %>%
+  mutate(RHC = ifelse(RHC == 1, "RHC", "No RHC")) %>%
+  ggplot(aes(x = distance)) +
+  geom_histogram(color = "white") +
+  facet_wrap(~RHC) +
+  xlab("Probability of receiving RHC") +
+  theme_bw()
+```
+Now the distibution of propensity score are much more blanced! So the matching is done well. In addition to ploting by yourself, there is an another way to inplement the result.
+```{r}
+plot(psm_mod,type = "hist" )
+```
+
+Just putting the model name in `plot()` can offer you a nice plot, showing the overall comparison. It shows the histograms of distribution of propensity score before and after matching. The histograms before matching on the left differ to a great degree. The histograms after matching on the right are very similar however.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
