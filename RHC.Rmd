@@ -29,11 +29,8 @@ library(GGally)
 library(survRM2)
 library(knitr)
 library(kableExtra)
-#library(randomForestSRC)
 library(ggRandomForests)
 library(pROC)
-#library(grpreg)
-#library(pec)
 library(ggfortify)
 library(broom)
 library(finalfit)
@@ -43,15 +40,18 @@ library(MatchIt)
 
 # Motivation
 
-[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. Here is the video which enables you understand how it works.
+[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. Here is the video which enables you to understand how it works.
 
 <div align="center">
 <iframe width="550" height="300" src="https://www.youtube.com/embed/xr-VkxUwceQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
 </iframe>
 </div>
-[source: https://www.youtube.com/embed/xr-VkxUwceQ ]
 
-It is often the case that a foreign objects enters the humen body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief is that it is beneficial and safe, so it is difficult to design a randomized controlled trail(RCT). 
+<center>
+[source: https://www.youtube.com/embed/xr-VkxUwceQ ]
+</center>
+
+It is often the case that a foreign objects enters the humen body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief is it beneficial and safe makes it difficult to design a randomized controlled trail(RCT). 
 
 Without RCTs of RHC, the only way to evaluate its effectness is observational study. The motivation of this case study is to reveal the association between time to death in 30 days and RHC based on an observational dataset. The main predictor of the model is RHC, we also adjust the model with all the other variables in the dataset. We want to know whether RHC actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
 
@@ -66,6 +66,7 @@ along with their purpose in this particular case study:
 In order to run this code please ensure you have these packages installed. 
 
 The learning objectives for this case study include:
+
   * causal inference
   * propensity score matching
   * multivariate logistic regression
@@ -148,7 +149,7 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 Our main topic is to investigate the influence of RHC, so let's devide the dataset into 'RHC' group and 'No RHC' group and try to find some difference between them. The demographics can help us understand the one to one relation between right heart catheterization and other symptoms.
 
 
-```{r include=FALSE}
+```{r echo=T, results='hide'}
 CreateTableOne(data = rhc_df, strata = 'RHC') %>%
   print() -> tblprint
 
@@ -156,7 +157,8 @@ tblprint[c(3,4, 9, 14, 21, 31, 43,45),4] <- 'Chi-sq'
 ```
 
 ```{r}
-kable(tblprint , "html", caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
+kable(tblprint , "html", 
+      caption = "Stritified by Right Heart Catheterization", booktabs = T) %>%
   kable_styling('responsive') %>%
   add_indent(c(5:7, 10:13,15:20,22:30,32:34))
 ```
@@ -170,17 +172,18 @@ Data visuzlization is adjective considering it enables us to get a grasp on the 
 ```{r, fig.width=11, fig.height=5}
 p1 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = sex)) + 
-          geom_bar() + ggtitle('distribution of RHC')
+          geom_bar() +
+           ggtitle('distribution of RHC')
 p2 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = race)) + 
           geom_bar(position = "fill") + 
-          ggtitle('distribution of RHC') + 
+           ggtitle('distribution of RHC') + 
           ylab('proportion')
 
 p3 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = med_ins)) + 
           geom_bar(position = "fill") + 
-          ggtitle('distribution of RHC') + 
+           ggtitle('distribution of RHC') + 
           ylab('proportion')
 
 ggarrange(p1, p2, p3, ncol=3, nrow=1)
@@ -192,19 +195,22 @@ Besides three categorical variables, we also choose three continuous variables a
 ```{r, fig.width=11, fig.height=5}
 p4 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = age, color = RHC)) + 
-          geom_boxplot() + ggtitle('distribution of age')
+          geom_boxplot() + 
+           ggtitle('distribution of age')
 p5 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = bp, color = RHC)) + 
-          geom_boxplot() + ggtitle('distribution of blood pressure')
+          geom_boxplot() + 
+           ggtitle('distribution of blood pressure')
 p6 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = pf, color = RHC)) + 
-          geom_boxplot() + ggtitle('distribution of PaO2/FiO2')
+          geom_boxplot() + 
+            ggtitle('distribution of PaO2/FiO2')
 
          
 ggarrange(p4, p5,p6, ncol=3, nrow=1)
 ```
 
-Age difference between two groups seem to be negligible while blood pressure and PaO2/FIO2 ratio vary largely. We see that patients who receive RHC tend to have lower blood pressure than patients who are not. Similiarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, which indicates that blood pressure and PaO2/FIO2 ratio are related to receiving RHC or not.
+Age difference between two groups seems to be negligible while blood pressure and PaO2/FIO2 ratio vary largely. We see that patients who receive RHC tend to have lower blood pressure than patients who are not. Similiarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, which indicates that blood pressure and PaO2/FIO2 ratio are related to receiving RHC or not.
 
 
 # Data analysis
@@ -213,7 +219,7 @@ Age difference between two groups seem to be negligible while blood pressure and
 
 [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) is a branch of statistics for analyzing the expected duration of time until one or more events happen, such as death in biological organisms and failure in mechanical systems. 
 
-## Outcome and time variables
+### Outcome and time variables
 
 Changing the type of the data is also very important for survival analysis, and by checking the data, we need to deal with variables denoted as characters. In our data set, the status of having RHC or not is not numeric. A way to adjust is to force it into factor directly. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we pushed the character into a numeric number and deducted it by 1 to get the numeric denotation that we want.
 
@@ -257,7 +263,8 @@ autoplot(fit, conf.int = FALSE) +
   labs(title = 'Kaplan Meier Plot', 
        y = 'survival probability', color = 'RHC', fill = 'RHC') +
   theme_bw() +
-  scale_color_manual(labels = c("No RHC", "RHC"), values = c("red", "blue"))
+  scale_color_manual(labels = c("No RHC", "RHC"), 
+                     values = c("red", "blue"))
 ```
 
 The Kaplan Meier plot shows us the survival rate stratified by having the RHC without any covariates adjustment.
@@ -266,24 +273,37 @@ The x-axis is the survival time, and the y-axis is the survival probability. It 
 
 Some of the description of the plot: at the beginning, all the patients survived. The survival probability of patients having the right catheterization is about `r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` and `r fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)` for patients not having the right catheterization. 
 
+
+Function `rmst2()` in package [`survRM2`](https://cran.r-project.org/web/packages/survRM2/survRM2.pdf) performs two-sample comparisons using the restricted mean survival time (RMST) as a summary measure of the survival time distribution. Some basic arguments are shown below.
+
+
+* `time`: The follow-up time for right censored data.
+* `status`: The status indicator, 1=event, and 0=right censored.
+* `arm`: The group indicator for comparison. 
+* `tau`: A scaler value to specify the truncation time point for the RMST calculation. 
+* `covariates`: This specifies covariates to be used for the adjusted analyses. When NULL, un-adjusted analyses are performed.
+
 ```{r}
-rmst <- rmst2(rhc_df$time, rhc_df$death, arm = rhc_df$RHC, tau = 30, covariates = NULL)
+rmst <- rmst2(rhc_df$time, rhc_df$death, 
+              arm = rhc_df$RHC, tau = 30, covariates = NULL)
 
 rmst$unadjusted.result %>%
   tidy() -> tbl.rmst
 
 tbl.rmst %>%
-  mutate(CI = paste('(',signif(lower..95,3), ',',signif(upper..95,3),')')) -> tbl.rmst
+  mutate(CI = paste('(',signif(lower..95,3), ',',
+                    signif(upper..95,3),')')) -> tbl.rmst
 
 tbl.rmst <- tbl.rmst[,c(1,2,6,5)]
-colnames(tbl.rmst) <- c('Comparision', 'Estiamte', '95% CI', 'P-value')
+colnames(tbl.rmst) <- c('Comparision', 'Estiamte', 
+                        '95% CI', 'P-value')
 tbl.rmst$`P-value`[tbl.rmst$`P-value` < 0.001] <- '<0.001'
 tbl.rmst$Estiamte <- signif(tbl.rmst$Estiamte, 3)
-kable(tbl.rmst[c(1,2),], "html", caption = "Restricted mean survival time", booktabs = T) %>%  
+kable(tbl.rmst[c(1,2),], "html", 
+      caption = "Restricted mean survival time", booktabs = T) %>%  
   kable_styling('responsive')
 
 ```
-
 
 The results show receiving RHC decrease the patients' restricted mean survival time by `r abs(tbl.rmst[1,2])` days. It seems that RHC is causing patients to live shorter. However, it's the result without any covariate adjustment. What if we want to adjust the model by the variables that we are interested in?
 
@@ -296,20 +316,22 @@ In the statistical analysis of observational data, PSM is a statistical matching
 
 The general procedures of PSM we would like to use include:
 
+
 * Run logistic regression:
-  + Dependent variable: Y = 1, if with RHC; Y = 0, otherwise.
-  + Choose appropriate condounders and apply multivariate logistic regression.
-  + Obtain propensity score, which is the predicted probability(p). Higher score indicates a higher probability of receiving the treatment.
+    + Dependent variable: Y = 1, if with RHC; Y = 0, otherwise.
+    + Choose appropriate condounders and apply multivariate logistic regression.
+    + Obtain propensity score, which is the predicted probability(p). Higher score indicates a higher probability of receiving the treatment.
 
 * One-to-one matching on propensity score:
-  + Randomly select one patient with RHC.
-  + Match this patient who has the cloest propensity score in all patients with RHC.
-  + Continue this matching untill all possible pairs were identified.
+    + Randomly select one patient with RHC.
+    + Match this patient who has the cloest propensity score in all patients with RHC.
+    + Continue this matching untill all possible pairs were identified.
   
 ### Run logistic regression
 
 ```{r}
-psm_glm <- glm(RHC ~ .-RHC-time-death, family = binomial(link = "logit"), 
+psm_glm <- glm(RHC ~ .-RHC-time-death, 
+               family = binomial(link = "logit"), 
                data = rhc_df)
 ```
 
