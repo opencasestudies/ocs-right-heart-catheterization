@@ -353,7 +353,7 @@ glm_df %>%
   ggplot(aes(x = p_rhc)) +
   geom_histogram(color = "white") +
   facet_wrap(~RHC) +
-  xlab("Probability of receiving RHC") +
+  xlab("Probability of receiving RHC before matching") +
   theme_bw()
 ```
 
@@ -397,7 +397,7 @@ rhc_psm_df %>%
   ggplot(aes(x = distance)) +
   geom_histogram(color = "white") +
   facet_wrap(~RHC) +
-  xlab("Probability of receiving RHC") +
+  xlab("Probability of receiving RHC after matching") +
   theme_bw()
 ```
 Now the distibution of propensity score are much more blanced! So the matching is done well. In addition to ploting by yourself, there is an another way to inplement the result.
