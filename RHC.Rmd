@@ -22,18 +22,13 @@ knitr::opts_chunk$set(message = F)
 knitr::opts_chunk$set(warning = F)
 
 library(tableone)
-library(tidyverse)
-library(survival)
-library(survminer)
-library(GGally)
-library(survRM2)
-library(knitr)
 library(kableExtra)
-library(ggRandomForests)
-library(pROC)
-library(ggfortify)
+library(tidyverse)
 library(broom)
-library(finalfit)
+library(ggpubr)
+library(ggfortify)
+library(survival)
+library(knitr)
 library(MatchIt)
 ```
 
@@ -61,6 +56,17 @@ along with their purpose in this particular case study:
 
 |Library|Purpose|
 |---|--------------------------------------------------------------------------------------------------------------|
+|`tableone`|Create 'Table 1' to describe baseline characteristics|
+|`kableExtra`|Helps with building common complex tables and manipulating table styles; creates awesome HTML tables|
+|`tidyverse`|A coherent system of packages for data manipulation, exploration and visualization |
+|`broom`|Takes the messy output of built-in functions in R, such as lm, nls, or t.test, and turns it into tidy data frames|
+|`ggpubr`|Provides some easy-to-use functions for creating and customizing 'ggplot2'- based publication ready plots|
+|`ggfortify`|Data visualization tools for statistical analysis result|
+|`survival`|Contains the core survival analysis routines, including definition of Surv objects, Kaplan-Meier and Cox models etc.|
+|`knitr`|Provides a general-purpose tool for dynamic report generation in R|
+|`pROC`||
+|`MatchIt`|Nonparametric preprocessing for parametric causal inference|
+
 
 
 In order to run this code please ensure you have these packages installed. 
@@ -169,7 +175,7 @@ What do you see? Take a moment to reflect on what these differences suggest for 
 
 ## Data visualization
 
-Data visuzlization is adjective considering it enables us to get a grasp on the difference between 'No RHC' and 'RHC' group. We would like to use `ggplot2` to create some plots.
+Data visuzlization is adjective considering it enables us to get a grasp on the difference between 'No RHC' and 'RHC' group faster. We would like to use `ggplot2` to create some plots.
 
 ```{r, fig.width=11, fig.height=5}
 p1 <- rhc_df %>% 
@@ -248,7 +254,7 @@ One condition makes the survival analysis difficult is [censoring](https://en.wi
 ![](doc/censoring.png)
 </center>
 
-Suppose there are three patients, A, B and C enroll in the study and the period of this study is $T$. Patients A died at time $t_1$ so he requires no censoring since we know his exact survival time; Patients B quitted the study at time $t_2$ ($t_2<T$). In this case, he needs to be censored since we just know he survived until $t_2$ but we have no idea of his exact survival time; Patients C is very lucky! He survived until the end of the study so his survivial equals to $T$. However, he also needs to be censored! Why? This is because we still don't know his exact survival time either. Therefore, right censoring can play an important role here : the true survival times will always be equal to or greater than the observed survival time.
+Suppose there are three patients, A, B and C enroll in the study and the period of this study is $T$. Patients A died at time $t_1$ so he requires no censoring since we know his exact survival time; Patients B quitted the study at time $t_2$ ($t_2<T$). There are many possibilities he quitted, such as he changed the phone number so we can not contact him. In this case, he needs to be censored since we just know he survived until $t_2$ but have no idea of his exact survival time; Patients C is very lucky! He survived until the end of the study so his survivial equals to $T$. However, he also needs to be censored! Why? This is because we still don't know his exact survival time either. Therefore, right censoring can play an important role here : the true survival times will always be equal to or greater than the observed survival time.
 
 
 ### Kaplan Meier (non-parametric)
@@ -264,14 +270,14 @@ sur_obj[1:10]
 
 `sur_obj` is basically a compiled version of the `time` and `death` that can be interpreted by the `survfit()` function. Do you see `+` behind survival times? This is what we discussed before - right censored data points. 30+ indicates this patient survived until the end of the study while 2 means this patient died at the second day after study began.
 
-Then we apply `survift()` to compute an estimate of a survival curve for censored data. Both of these two functions comes from package [`survival`](https://www.rdocumentation.org/packages/survival/versions/2.11-4).
+Then we apply `survift()` to compute an estimate of a survival curve for censored data. Both of these two functions come from package [`survival`](https://www.rdocumentation.org/packages/survival/versions/2.11-4).
 
 ```{r}
 fit <- survfit(sur_obj ~ RHC, data = rhc_df)
 fit
 ```
 
-The total number of the patients having right catheterization is `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 1, na.rm = TRUE)-fit$n.censor[58]` of them died in 30 days(38%). The total number of the patients not having right catheterization is `r sum(rhc_df$RHC == 0, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them died in 30 days(30.6%).
+The total number of the patients having RCT is `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 1, na.rm = TRUE)-fit$n.censor[58]` of them died in 30 days(38%). The total number of the patients not having RCT is `r sum(rhc_df$RHC == 0, na.rm = TRUE)`, and `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them died in 30 days(30.6%).
 
 
 To show the survival curve, `autoplot()` function can generate a ggplot for `scuvfit` object. It is called Kaplan Meier plot, which shows us the survival rate stratified by having the RHC without any covariates adjustment.
