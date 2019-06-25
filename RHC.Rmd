@@ -298,7 +298,7 @@ We see difference in Kaplan Meier plot and it seems that patients with RHC treat
 
 ## Propensity score matching
 
-As we mentioned above, RHC is beneficial is the popular belief, which makes it harder to build a RCT. [Revelant paper](https://www.ncbi.nlm.nih.gov/pubmed/8782638) explained this phenomenon like this: "In observational studies, the treatment selection has connection with patients characteristics but also has link with the outcomes. For example, patients with lower blood pressure are more likely to get RHC, and they are also more likely to die. The effect of such treatment selection bias has been called "confounding by indication". To adjust for treatment selection bias, the variables that independently affect the decision to use or withhold the treatment must be identified and measured, that's why we introduce [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) here. "
+As we mentioned above, RHC is beneficial is the popular belief, which makes it harder to build a RCT. [1](https://www.ncbi.nlm.nih.gov/pubmed/8782638) explained this phenomenon like this: "In observational studies, the treatment selection has connection with patients characteristics but also has link with the outcomes. For example, patients with lower blood pressure are more likely to get RHC, and they are also more likely to die. The effect of such treatment selection bias has been called "confounding by indication". To adjust for treatment selection bias, the variables that independently affect the decision to use or withhold the treatment must be identified and measured, that's why we introduce [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) here. "
 
 In the statistical analysis of observational data, PSM is a statistical matching technique that attempts to estimate the effect of a treatment, policy, or other intervention by accounting for the covariates that predict receiving the treatment. PSM attempts to reduce the bias due to confounding variables that could be found in an estimate of the treatment effect obtained from simply comparing outcomes among units that received the treatment versus those that did not. 
 
@@ -352,10 +352,12 @@ After estimating the propensity score, histograms of the estimated propensity sc
 glm_df %>%
   mutate(RHC = ifelse(RHC == 1, "RHC", "No RHC")) %>%
   ggplot(aes(x = p_rhc,fill = RHC, color = RHC)) +
-  geom_histogram(alpha=0.5)+
+  geom_histogram(alpha=0.5, position = 'identity')+
   xlab("Probability of receiving RHC before matching") +
-  theme_bw()
+  ylab("density") + theme_bw()
 ```
+
+Note that, you can change the `position` adjustment to use for overlapping points on the layer. Possible values for the argument position are 'identity','stack', 'dodge'. Default value is 'stack'.
 
 It is obvious the distribution of propensity score is not balanced, that's why we will move to the next step: one-to-one matching.
 
@@ -370,7 +372,12 @@ The arguments provided by `matchit()` are given below:
 
 * `data`: Data frame (or database table name) containing the variables for analysis in the formula arguments.
 
-* `method`: Specifies the matching method. Default is "nearst(nearst neightbour matching)".
+* `method =`: Specifies the matching methods. Options include:
+    + `exact`: Matches each treated unit with a control unit that has exactly the same values on each covariate. It is useless when there are too many variables.
+    + `subclass`: Breaks the data set into subclasses so the distributions of the covariates are similar in each subclass.
+    + `nearest`: Matches a pair that is closest in terms of a distance measure. It is the default method.
+    + `optimal`: Minimize the average absolute distance across all matched pairs.
+ 
 
 * `caliper`: Nearest neighbor matching has a further restriction that the absolute difference in the propensity scores of matched subjects must be below some prespecified threshold (the caliper distance). [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using a caliper size of one-fifth of a standard deviation of the sample estimated propensity scores.
 
@@ -398,10 +405,9 @@ Using `match.data()`, we can get the final dataset, `rhc_psm_df`. Note that the 
 rhc_psm_df %>%
   mutate(RHC = ifelse(RHC == 1, "RHC", "No RHC")) %>%
   ggplot(aes(x = distance,fill = RHC, color = RHC)) +
-  geom_histogram(alpha = 0.5) +
-  #facet_wrap(~RHC) +
+  geom_histogram(alpha = 0.5, position = 'identity') +
   xlab("Probability of receiving RHC after matching") +
-  theme_bw()
+  ylab('density') + theme_bw()
 
 ```
 
@@ -427,7 +433,7 @@ A fundamental assumption of the cox proportional hazards model is that the model
 
 #### 1. Survival Function
 
-Let $T$ represent survival time and we regard it as a random variable. Its cumulative distribution function is
+Let $T$ represent survival time and we regard it as a continuous random variable. Its cumulative distribution function is
 
 $$P(t) = Pr(T \leq t)$$
 
@@ -437,6 +443,10 @@ $$S(t) = Pr(T>t) = 1 - P(t)$$
 
 To simplify, the survival rate equal to the probability of surviving at time t or one minus the probability of dying at time t.
 
+Besides $f(t) = P(t=T)$, so 
+
+$$S(t)= \int_{t}^{\infty}f(t)dt$$
+$$f(t)=-\frac{dS(t)}{dt}$$
 
 #### 2. Hazard Function
 
@@ -444,10 +454,12 @@ It describes the probability of an event or its hazard $h(t)$ if the patient sur
 
 $$h(t) =\displaystyle{\lim_{x \to \Delta t}} \frac{ P(t \leq T <t+\Delta t|T \ge t)}{\Delta t}$$
 
-$$h(t) = \frac{f(t)}{S(t)}$$
+$$h(t) = \frac{f(t)}{S(t)}=-\frac{dln[S(t)]}{dt}$$
+a related quantity is the cumulative hazard function hazard function $H(t)$, defined by,
 
-
-wehre $f(t) = P(t=T)$
+$$H(t)=\int_{0}^{t}h(u)du=-ln[S(t)]$$
+Thus, for continuous lifetimes,
+$$S(t)=exp[-H(t)]=exp[-\int_{0}^{t}h(u)du]$$
 
 Properties of Hazard Function are given below:
 
@@ -463,6 +475,7 @@ Properties of Hazard Function are given below:
 #### 3. Linear-like Model
 
 Our goal is to investigate the survival distribution with consideration of all other covariates. This examination entails the specification of a linear-like model for the log hazard:
+
 $$log~h(t)= \alpha+\beta~X $$
 or equivalently,
 
@@ -472,6 +485,26 @@ where $\beta$ is the coefficients matrix and the $X$ is the covariates matrix.
 If we set a baseline function $h_0(t) = \alpha$, we can estimate the hazard function like this:
 
 $$h(t) = h_0(t) e^{\beta X}$$
+#### 4. Other resources
+
+Besides cox proportional hazard model, other parameteric models for survival data are preferable under different circumstances. Here we would like to give a brief description on one specific model: [complementary log log model](http://www.stat.ualberta.ca/~kcarrier/STAT562/comp_log_log)  
+
+An alternative extension of the proportional hazards model to discrete time starts from the survival function, which in a proportional hazards framework can be written as:
+
+$$S(t_j)=Pr(T \geq t_j)=\sum_{i=j}^{\infty}Pr(T=t_i)$$
+
+$T$ is a  discrete random variable that takes the value$t_1<t_2<...$. The relationship between sirvival function and hazard function can be written like:
+
+$$S(t_j)=(1-h_{t_1})(1-h_{t_2})...(1-h_{t_{j-1}})$$
+
+In this case, another link function is more suitable than log hazard:
+
+$$log(-log(1-h(t_j)))=\alpha_j+X_{j}\beta$$
+where $\alpha_j=log(-log(1-h_0(t_j)))$ is the baseline hazard function and $X_{j}$ is the covariate matrix for patient $j$
+
+When should we use it? Complementary log-log model is asymmetrical, it is frequently used when the probability of an event is very small or very large.
+
+
 
 ### Model Application
 
@@ -556,5 +589,7 @@ There also exists much more space for further improvement such as variable selec
 
 # Reference
 
-Lin DY, Psaty BM, Kronmal RA (1998): Assessing the sensitivity of regression results to unmeasured confounders in observational studies. Biometrics 54:948-963 for useful methods for sensitivity analysis, one of which was applied to the RHC results.
+[1] Connors A F, Speroff T, Dawson N V, et al. The effectiveness of right heart catheterization in the initial care of critically III patients[J]. Jama, 1996, 276(11): 889-897.
+[2] Lin DY, Psaty BM, Kronmal RA (1998): Assessing the sensitivity of regression results to unmeasured confounders in observational studies. Biometrics 54:948-963 for useful methods for sensitivity analysis, one of which was applied to the RHC results.
+[3] Klein J P, Moeschberger M L. Survival analysis: techniques for censored and truncated data[M]. Springer Science & Business Media, 2006.
 
