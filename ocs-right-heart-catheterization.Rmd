@@ -1,6 +1,6 @@
 ---
-title: "Case-study Right Heart Catheterization"
-author: "Open Case Study Team"
+title: OpenCaseStudies - Right Heart Catheterization 
+author: Open Case Study Team
 output:
   html_document:
     md_extensions: -startnum
@@ -20,7 +20,9 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = F)
 knitr::opts_chunk$set(warning = F)
+```
 
+```{r}
 library(tableone)
 library(kableExtra)
 library(tidyverse)
@@ -35,7 +37,13 @@ library(MatchIt)
 
 # Motivation
 
-[Right heart catheterization(RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery catheterization, is an invasive test that mainly checks the working state of the heart by guiding a pulmonary artery (PA) catheter (a small and hollow tube) through the pulmonary artery and into the right chambers of the heart. Here is the video which enables you to understand how it works.
+[Right heart catheterization (RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery 
+catheterization, is an invasive test that mainly checks 
+the working state of the heart by guiding a pulmonary
+artery (PA) catheter (a small and hollow tube) through 
+the pulmonary artery and into the right chambers of the
+heart. Here is the video which enables you to understand
+how it works.
 
 <div align="center">
 <iframe width="550" height="300" src="https://www.youtube.com/embed/xr-VkxUwceQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
@@ -43,12 +51,12 @@ library(MatchIt)
 </div>
 
 <center>
-[source: https://www.youtube.com/embed/xr-VkxUwceQ ]
+[source: https://www.youtube.com/embed/xr-VkxUwceQ]
 </center>
 
-It is often the case that a foreign object enters the human body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief is it beneficial and safe makes it difficult to design a randomized controlled trail (RCT). 
+It is often the case that a foreign object enters the human body, there is the risk of infection. RHC is no different. When the tube is put into the artery and a dye is injected into the heart, potential complications are the rupture of pulmonary artery, arrythmias of the heart where the heart may skip a beat. However, the widespread belief that is it beneficial and safe makes it difficult to design a randomized controlled trial (RCT). 
 
-Without RCTs of RHC, the only way to evaluate its effeteness is observational study. The motivation of this case study is to reveal the association between time to death in 30 days and RHC based on an observational dataset. The main predictor of the model is RHC, we also adjust the model with all the other variables in the dataset. We want to know whether RHC actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
+Without RCTs of RHCs, the only way to evaluate its effectiveness is observational study. The motivation of this case study is to investigate whether or not there is an impact on survival (time to death) due to the use RHC or in an observational dataset. Our main predictor of interest is RHC, but we also want to adjust for all other potential confounders in the dataset. We want to know whether RHC actually improves the patients' survival rate in 30 days adjusted by other baseline variables.
 
 
 The libraries used in this study are listed in the following table, 
@@ -74,23 +82,29 @@ In order to run this code please ensure you have these packages installed.
 The learning objectives for this case study include:
 
   * causal inference
-  * propensity score matching
+  * propensity score matching (using the `MatchIt` package)
   * multivariate logistic regression
   * survival analysis
-  
+
 
 # What is the data?
 
-[Right heart catheterization](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv): The dataset pertains to day 1 of hospitalization, i.e., the treatment variable `swang1` is whether or not a patient received an RHC (also called the Swan-Ganz catheter) on the first day in which the patient qualified for the study. The variable description can be found [here](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html).
+The data are available as a `.csv` at this [link](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv): The dataset pertains to day 1 of hospitalization, i.e., the treatment variable `swang1` is whether or not a patient received an RHC (also called the Swan-Ganz catheter) on the first day in which the patient qualified for the study. The description of all variables can be found [here](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html).
 
 
 # Data Import
 
-The data is an online resources, we will import data from the web directly with `read_csv()` function. This dataset was originally used in Connors et al. JAMA 1996;276:889-897, and has been made publicly available.
+As the data are avaiable online, we will import data from the web directly with `read_csv()` function from the [`readr` package]() as part of the `tidyverse`. This dataset was originally used in Connors et al. JAMA 1996;276:889-897, and has been made publicly available.
 
 ```{r}
 file <- "http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv"
 rhc <- read_csv(file)
+```
+
+Let's take a quick look at the data: 
+
+```{r}
+rhc[1:5, 1:5]
 ```
 
 
@@ -98,7 +112,7 @@ rhc <- read_csv(file)
 
 ## Variable selection
 
-There are totally `r ncol(rhc)` variables and `r nrow(rhc)` observations in the dataset. By reading the description of the data, we just want to select several variables here. When you try to reproduce this case study, you can try to choose others which you are interested in.  
+There are in total `r ncol(rhc)` variables and `r nrow(rhc)` observations in the dataset. Here, we will only select a subset of variables. If you are interested, you can change the list below to include other variables as a future exercise. 
 
 ```{r}
 rhc_df <- 
@@ -122,16 +136,15 @@ rhc_df <-
            death = dth30,
            time = t3d30,
            RHC = swang1)
-#summary(rhc_df)
 ```
 
-According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html),the description of variables we interested in is given below.
+According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html), a summary of the variables we are interested in is given below.
 
 | variable names   |      meaning      |
 |---------------------------------|---------------------------------|
-| age                                  | Age                                                                                                                                                                 |
-| sex                                  | Sex                                                                                                                                                                 |
-| race                                 | Race                                                                                                                                                                |
+| `age`                                  | Age                                                                                                                                                                 |
+| `sex`                                  | Sex                                                                                                                                                                 |
+| `race`                                 | Race                                                                                                                                                                |
 | education                            | Years of education                                                                                                                                                  |
 | income                               | Income                                                                                                                                                              |
 | med_ins                              | Medical insurance                                                                                                                                                   |
@@ -142,8 +155,8 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 | bp                                   | Mean blood pressure                                                                                                                                                 |
 | resp                                 | Respiratory rate                                                                                                                                                    |
 | rth                                  | Heart rate                                                                                                                                                          |
-| pf                                   | PaO2/FIO2 ratio,ratio of arterial oxygen partial pressure to fractional inspired oxygen                                                                             |
-| pc                                   | PaCo2 ratio,partial pressure of arterial carbon dioxide                                                                                                             |
+| pf                                   | PaO2/FIO2 ratio, ratio of arterial oxygen partial pressure to fractional inspired oxygen                                                                             |
+| pc                                   | PaCo2 ratio, partial pressure of arterial carbon dioxide                                                                                                             |
 | ph                                   | PH                                                                                                                                                                  |
 | time                                 | Survival time of each patient in 30 days                                                                                                                            |
 | death                                | Indicates whether the patient survived or dead in 30 days                                                                                                           |
@@ -152,15 +165,25 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 
 # Exploratory data analysis
 
-Our main topic is to investigate the influence of RHC, so let's divide the dataset into 'RHC' group and 'No RHC' group and try to find some difference between them. The demographics can help us understand the one to one relation between right heart catheterization and other symptoms.
+Our main topic is to investigate the influence of RHC.
+For the purpose of exploratory data analysis (EDA), let's 
+stratify the `RHC` column in the `rhc_df` dataset into two
+groups: the ones with and without the RHC procedure. Then, 
+we can summarize the potential confounders within each subgroup 
+to identify if there are differences between them. The demographics can help us understand the one to one relation between right heart catheterization and other variables.
 
-We will use function `CreateTableOne()` in package [`tableone`](https://www.rdocumentation.org/packages/tableone/versions/0.10.0) to summarize both continuous and categorical variables. It is optionally stratified by one or more stratifying variables and performs statistical tests. The object gives a table that is easy to use in medical research papers.
+We will use function `CreateTableOne()` in package [`tableone`](https://www.rdocumentation.org/packages/tableone/versions/0.10.0) to summarize both continuous and categorical variables with respect to the `RHC` column in our dataset. 
+Then, we can use statistical tests to investigate relationships. 
 
 ```{r echo=T, results='hide'}
-CreateTableOne(data = rhc_df, strata = 'RHC') %>%
-  print() -> tblprint
+tblprint <- 
+  CreateTableOne(data = rhc_df, strata = 'RHC') %>%
+  print()
 
 tblprint[c(3, 4, 9, 14, 21, 31, 43, 45),4] <- 'Chi-sq'
+tblprint[c(1, 2),4] <- 't-test'
+tblprint <- 
+  tblprint %>% print()
 ```
 
 ```{r}
@@ -170,11 +193,13 @@ kable(tblprint , "html",
   add_indent(c(5:7, 10:13,15:20,22:30,32:34))
 ```
 
-What do you see? Take a moment to reflect on what these differences suggest for the relationship of interest. The unadjusted outcomes indicate that patients managed with RHC were more likely to be white male, to have private insurance, to have under $11k income, to enter the study of [ARF](https://en.wikipedia.org/wiki/Acute_kidney_injury), [MOSF](https://en.wikipedia.org/wiki/Multiple_organ_dysfunction_syndrome) or [CHF](https://en.wikipedia.org/wiki/Heart_failure), which are acute kidney injury, multisystem organ failure and chronic heart failure respectively. Patients with RHC were less likely to have cancer. 
+What do you see? Take a moment to reflect on what these differences suggest. The unadjusted outcomes indicate that patients managed with RHC were more likely to be white male, to have private insurance, to have under $11k income, to also have an acute kidney injury  ([ARF](https://en.wikipedia.org/wiki/Acute_kidney_injury)),  [MOSF](https://en.wikipedia.org/wiki/Multiple_organ_dysfunction_syndrome) or [CHF](https://en.wikipedia.org/wiki/Heart_failure), which are acute kidney injury, multisystem organ failure and chronic heart failure respectively. Patients with RHC were less likely to have cancer. 
 
 ## Data visualization
 
-Data visualization is adjective considering it enables us to get a grasp on the difference between 'No RHC' and 'RHC' group faster. We would like to use `ggplot2` to create some plots.
+Next, let's use data visualization to explore the relationships between RHC and the other variables in our dataset. Here, we will use the `ggplot2` package from the `tidyverse`.
+
+First, let's explore the `sex`, `race` and `med_ins` variables with respect to the `RHC` column. We will show different barplots using the `geom_bar()` function in `ggplot2`. We also use the `ggarrange` function from the `ggpubr` package to arrange the subfigures into one plot. 
 
 ```{r, fig.width=11, fig.height=5}
 p1 <- rhc_df %>% 
@@ -195,9 +220,9 @@ p3 <- rhc_df %>%
 
 ggarrange(p1, p2, p3, ncol=3, nrow=1)
 ```
-Different with the left plot, the other two plot use the command `position='fill'` option in the `geom_bar()` function. In this case, it shows the proportion rather than count. 
+The dfifference between the left plot and the other two plots, is the middle and right plots use the command `position='fill'` option in the `geom_bar()` function. In this case, it shows the proportion rather than count. 
 
-These plots further prove our understanding of the characteristics of patients: patients managed with RHC were more likely to be white male, to have private insurance. Here we just provide three examples, but try more variables you are interested in!
+These plots further match our understanding of the characteristics of patients: patients managed with RHC were more likely to be white male (mostly teal), to have private insurance (mostly blue). Here we just provide three examples, but we encourage you to try more variables that you are interested in!
 
 Besides three categorical variables, we also choose three continuous variables and visualize them.
 
@@ -221,41 +246,56 @@ p6 <- rhc_df %>%
 ggarrange(p4, p5,p6, ncol=3, nrow=1)
 ```
 
-Age difference between two groups seems to be negligible while blood pressure and PaO2/FIO2 ratio vary largely. We see that patients who receive RHC tend to have lower blood pressure than patients who are not. Similarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, which indicates that blood pressure and PaO2/FIO2 ratio are related to receiving RHC or not.
+The age difference between the RHC and No RHC groups seem to be negligible, while blood pressure and PaO2/FIO2 ratio differ largely. We see that patients who receive RHC tend to have lower blood pressure than patients who are not. Similarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, which indicates that blood pressure and PaO2/FIO2 ratio might be related to whether or not a patient receives the RHC treatment. 
 
 
 # Data analysis
 
+Because we want to investigate the impact of receiving the RHC treatment on a patient's 30 day survival, we will use a branch of statistics called [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis). This can be used to analyze the expected duration of time until one or more events happen, such as death in biological organisms and failure in mechanical systems. 
+
 ## Survival analysis
-
-[survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) is a branch of statistics for analyzing the expected duration of time until one or more events happen, such as death in biological organisms and failure in mechanical systems. 
-
 
 ### Outcome and time variables
 
-Changing the type of the data is also very important for survival analysis, and by checking the data, we need to deal with variables denoted as characters. In our data set, the status of having RHC or not is not numeric. A way to adjust is to force it into factor directly. However, this kind of factor format sometimes does not work in some of the packages in R. Therefore, we pushed the character into a numeric number.
+Before we dive into the methods for survival analysis, we need to changie the datatype of the `death` and `RHC` columns in the `rhc_df` dataframe. Let's check out their datatype. 
+
+```{r}
+str(rhc_df$death)
+str(rhc_df$RHC)
+```
+
+We see they are character strings. We want to convert the datatype of these 
+columns to a numeric. To do this we will use the `as.factor()` and `as.numeric()` functions to 
+transform the factor as numerical variable. In our case, after these steps, "RHC" will be encoded as 2 while "No RHC" will be encoded as 1. Then we deducted it by 1 to get the numeric denotation that we want, which are 1 and 0 respectively.
 
 ```{r}
 rhc_df$death <- as.numeric(as.factor(rhc_df$death)) -1
 rhc_df$RHC <- as.numeric(as.factor(rhc_df$RHC)) - 1
 ```
 
-`as.factor()` is used to encode vector as a factor automatically. Then we use `as.numeric()` to transform the factor as numerical variable. In our case, after these steps, "RHC" will be encoded as 2 while "No RHC" will be encoded as 1. Then we deducted it by 1 to get the numeric denotation that we want, which are 1 and 0 respectively.
+Let's check on what the datatypes are now. 
+
+```{r}
+str(rhc_df$death)
+str(rhc_df$RHC)
+```
+
 
 ### Right censoring
 
-One condition makes the survival analysis difficult is [censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). Censoring is a condition in which the value of a measurement or observation is only partially known. There are various kinds of censoring but you might want to restrict yourselves to right-censoring, which is the most common case in survival analysis.
+One additional problem we need to be aware of when talking about time to event data is 
+[censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). Censoring is a type of event in which the value of a measurement or observation is only partially known. There are various kinds of censoring, but here we will focus only on right-censoring, which is the most common case in survival analysis.
 
 <center>
 ![](doc/censoring.png)
 </center>
 
-Suppose there are three patients, A, B and C enroll in the study and the period of this study is $T$. Patients A died at time $t_1$ so he requires no censoring since we know his exact survival time; Patients B quitted the study at time $t_2$ ($t_2<T$). There are many possibilities he quitted, such as he changed the phone number so we can't contact him. In this case, he needs to be censored since we just know he survived until $t_2$ but have no idea of his exact survival time; Patients C is very lucky! He survived until the end of the study so his survivial time equals to $T$. However, he also needs to be censored! Why? This is because we still don't know his exact survival time either. Therefore, right censoring can play an important role here: the true survival times will always be equal to or greater than the observed survival time.
+Suppose there are three patients, A, B and C enroll in the study and the period of this study is $T$. Patients A died at time $t_1$ so he requires no censoring since we know his exact survival time; Patients B quit the study at time $t_2$ (where $t_2<T$). There are many possibilities why he quit, such as he changed his phone number, so we can't contact him. In this case, he needs to be censored since we just know he survived until $t_2$, but have no idea of his exact survival time; Patients C was alive at the end of the study, so his survivial time is $T$. However, he also needs to be censored! Why? This is because we still don't know his exact survival time either. Therefore, right censoring can play an important role here: the true survival times will always be equal to or greater than the observed survival time.
 
 
 ### Kaplan Meier (non-parametric)
 
-The [Kaplan Meier estimator](https://en.wikipedia.org/wiki/Kaplan–Meier_estimator) is a non-parametric method used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
+The [Kaplan Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) is a non-parametric method used to estimate the survival probability. It is often used to estimate the survival rate stratified by some treatment of interest.
 
 `Surv()` function creates a survival object, usually used as a response variable in a simple case of right-censored data. 
 
@@ -336,7 +376,7 @@ psm_glm <- glm(RHC ~ .-time-death,
                data = rhc_df)
 ```
 
-Using this model, it is easy to calculate the propensity score for each patient. It is simply the patient’s predicted probability of receiving RHC, given the estimates from the logit model. Then, we calculated this propensity score with the help of `predict()` and create a data frame that has the propensity score as well as the patient’s actual treatment status.
+Using this model, it is easy to calculate the propensity score for each patient. It is simply the patient???s predicted probability of receiving RHC, given the estimates from the logit model. Then, we calculated this propensity score with the help of `predict()` and create a data frame that has the propensity score as well as the patient???s actual treatment status.
 
 ```{r}
 glm_df <- data.frame( p_rhc <-  predict(psm_glm, type = "response"),
@@ -381,7 +421,7 @@ The arguments provided by `matchit()` are given below:
 
 * `caliper`: Nearest neighbor matching has a further restriction that the absolute difference in the propensity scores of matched subjects must be below some prespecified threshold (the caliper distance). [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using a caliper size of one-fifth of a standard deviation of the sample estimated propensity scores.
 
-* `ratio`: Indicates one-to-one matching — every treatment case will be matched with one control case. You can increase the number of control cases matched to each treatment case by increasing this number; usually this number is between 1 and 5.
+* `ratio`: Indicates one-to-one matching ??? every treatment case will be matched with one control case. You can increase the number of control cases matched to each treatment case by increasing this number; usually this number is between 1 and 5.
 
 
 To specify the value of `caliper`, the standard deviation of the logit odds of estimated propensity scores is necessary. That is what we calculated in previous section. `p_rhc` will come into useful now!
