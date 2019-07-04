@@ -33,6 +33,7 @@ references:
   publisher: Springer Science \& Business Media
   issued:
     year: 2006
+    
 
 ---
 
@@ -89,19 +90,16 @@ along with their purpose in this particular case study:
 |Library|Purpose|
 |---|--------------------------------------------------------------------------------------------------------------|
 |`tableone`|Creates 'Table 1' to describe baseline characteristics|
-|`kableExtra`|Helps with building common complex tables and manipulating 
-table styles; creates awesome HTML tables|
-|`tidyverse`|A coherent system of packages for data manipulation, 
-exploration and visualization |
-|`broom`|Takes the messy output of built-in functions in R, 
-such as lm, nls, or t.test, and turns it into tidy data frames|
-|`ggpubr`|Provides some easy-to-use functions for creating and 
-customizing 'ggplot2'- based publication ready plots|
+|`kableExtra`|Helps with building common complex tables and manipulating table styles; creates awesome HTML tables|
+|`tidyverse`|A coherent system of packages for data manipulation, exploration and visualization |
+|`broom`|Takes the messy output of built-in functions in R, and turns it into tidy data frames|
+|`ggpubr`|Provides some easy-to-use functions for creating and customizing 'ggplot2'- based publication ready plots|
 |`ggfortify`|Data visualization tools for statistical analysis result|
-|`survival`|Contains the core survival analysis routines, including 
-definition of Surv objects, Kaplan-Meier and Cox models etc.|
+|`gridtExtra`|Provides a number of user-level functions to work with "grid" graphics|
+|`ggplot2`|Create elegant data visualisations using the grammar of graphics|
+|`survival`|Contains the core survival analysis routines, including definition of Surv objects, Kaplan-Meier and Cox models etc.|
+|`survminer`|Drawing Survival Curves using 'ggplot2'|
 |`knitr`|Provides a general-purpose tool for dynamic report generation in R|
-|`pROC`||
 |`MatchIt`|Nonparametric preprocessing for parametric causal inference|
 
 
@@ -115,7 +113,10 @@ library(tidyverse)
 library(broom)
 library(ggpubr)
 library(ggfortify)
+library(gridExtra)
+library(ggplot2)
 library(survival)
+library(survminer)
 library(knitr)
 library(MatchIt)
 ```
@@ -185,7 +186,6 @@ rhc_df <-
            resp = resp1,
            hrt = hrt1,
            pf = pafi1,
-           pc = paco21,
            ph = ph1,
            death = dth30,
            time = t3d30,
@@ -210,7 +210,6 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 | `resp`                                 | Respiratory rate                                                                                                                                                    |
 | `rth`                                  | Heart rate                                                                                                                                                          |
 | `pf`                                   | PaO2/FIO2 ratio, ratio of arterial oxygen partial pressure to fractional inspired oxygen                                                                             |
-| `pc`                                   | PaCo2 ratio, partial pressure of arterial carbon dioxide                                                                                                             |
 | `ph`                                   | PH                                                                                                                                                                  |
 | `time`                                 | Survival time of each patient in 30 days                                                                                                                            |
 | `death`                                | Indicates whether the patient survived or dead in 30 days                                                                                                           |
@@ -237,8 +236,8 @@ tblprint <-
   CreateTableOne(data = rhc_df, strata = 'RHC') %>%
   print()
 
-tblprint[c(3, 4, 9, 14, 21, 31, 43, 45),4] <- 'Chi-sq'
-tblprint[-c(1, 3, 4, 9, 14, 21, 31, 43, 45),4] <- 't-test'
+tblprint[c(3, 4, 9, 14, 21, 31, 42, 44),4] <- 'Chi-sq'
+tblprint[c(2, 8, 35, 36, 37, 38, 39, 40, 41, 43),4] <- 't-test'
 tblprint <- 
   tblprint %>% print()
 ```
@@ -661,11 +660,10 @@ epsilon <- 0.2*sd(log(p_rhc/(1-p_rhc)))
 psm_mod <- matchit( RHC ~ age + sex + race + education +
            income + med_ins + disease + cancer +
            weight + temp + bp + resp + hrt + pf +
-           pc + ph, data = rhc_df, method = "nearest", 
+           ph, data = rhc_df, method = "nearest", 
            caliper  = epsilon, ratio = 1)
 
 rhc_psm_df <- match.data(psm_mod)
-#head(rhc_psm_df)
 ```
 
 Using `match.data()` function, we can get the final dataset, `rhc_psm_df`. Note that 
@@ -698,17 +696,22 @@ on the right are more similar.
 
 ## Cox Proportional Hazard Model
 
-In logistic regression, we know that whether an event is going to happen or not, 
-and you could see survival analysis as an updated version of logistic regression 
-where you could see when that event would happen.
+Given balanced data, let's continue to investigate the association of survival rate and time.
 
-Cox proportional hazards model is a class of parametric survival models in statistics.
-Different with Kaplan Meier model, except for variables like the time that passes, 
-the event occurs, it also includes other covariates that used to adjust the association 
-of survival rate and time.
 
-A fundamental assumption of the cox proportional hazards model is that the model assumes
-the hazard is constant with the time passing by.
+In Kaplan-Meier plot, we created the `sur_obj` object with the time that passes(`time`), 
+the event occurs (`death`) to plot the survival curve. This non-parametric methods is a simple 
+comparision which can be used to get a first-step understanding. More often than not, 
+some information in the groups have additional characteristics that may influence the outcome,
+such as `blood pressure`, `age`. So it is suitable to include these confounding variables.
+
+[Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model) 
+is a class of parametric survival models in statistics. It extends the original model to 
+assess simultaneously the effect of confounding variables on survival rate. After adjustment for 
+these vairables, the comparison of survival rate between RHC and No RHC group should be 
+less biased and more precise than a simple comparison.
+
+
 
 ### Theoretical Concepts
 
@@ -723,7 +726,7 @@ The complement of the distribution function is survival function $S(t)$
 
 $$S(t) = Pr(T>t) = 1 - P(t)$$
 
-To simplify, the survival rate equal to the probability of surviving at time t 
+To simplify, the survival rate is equal to the probability of surviving at time t 
 or one minus the probability of dying at time t.
 
 Besides $f(t) = P(t=T)$, so 
@@ -771,7 +774,17 @@ where $\beta$ is the coefficients matrix and the $X$ is the covariates matrix.
 If we set a baseline function $h_0(t) = \alpha$, we can estimate the hazard function like this:
 
 $$h(t) = h_0(t) e^{\beta X}$$
+
+This model is often called 'proportional' because if we look at 2 individuals with
+different covariates matrix $X_1$ and $X_2$, the ratio of their hazard is:
+
+$$ \frac{h(t|X_1)}{h(t|X_2)}=\frac{h_0(t) e^{\beta X_1}}{h_0(t) e^{\beta X_2}}=e^{\beta (X_1-X_2)}$$
+
+which is a constant. So the hazard rates are proportional. We will check this assumption
+when we apply the model on our data set.
+
 #### 4. Other resources
+
 
 Besides cox proportional hazard model, other parameteric models 
 for survival data are preferable under different circumstances. 
@@ -804,18 +817,27 @@ The Cox proportional hazards model is fitted by `coxph()` function,
 located in `survival` package. Simariliy, we also need to create a survival object
 first and then fit the model.
 
-Just notice the structure of `rhc_psm_df`. Besides the origin variables, 
-`rhc_psm_df` also includes propensity socre and weight calcuated by `matchit()`, 
-which we do not need in model fitting. So we remove unecessary variables 
-and fit the model with all the other variables.
+Just notice the structure of `rhc_psm_df`.
+
+```{r}
+head(rhc_psm_df)
+```
+
+Besides the origin variables, `rhc_psm_df` also includes propensity socre(`distance`) 
+and weight(`weights`) calcuated by `matchit()`, which we do not need in model fitting. 
+Also, `time` and `death` are incorporated to create the `sur_obj` object
+to explain right censoring. They are uncessary so we will remove them and just fit 
+the model with all other variables.
+
 
 ```{r}
 fit1 <- coxph(Surv(time, death) ~ . - time - death -
               distance - weights, 
-              data = rhc_psm_df)
+              data = rhc_psm_df,x=TRUE)
 res <- tidy(fit1)
 head(res)
 ```
+
 The `tidy()` function in the `broom` package provides a dataframe representation of
 the model's output. We just show the head of it here but you are encouraged to
 research more if you are interested in!
@@ -825,19 +847,92 @@ If the exponentiated coefficient is larger than 1, the variable will increase
 the survival probability and vice versa.
 
 Thus, for example, holding the other covariates constant, an additional year of age
-increases the monthly hazard of death by `r (exp(res[1,2])-1)` on average. 
-Similarly, compared with female, male have `r (exp(res[2,2])-1)` increased monthly hazard of death.
+increases the monthly hazard of death by `r round(exp(res[1,2])-1,4)` on average. 
+Similarly, compared with female, male have `r round(exp(res[2,2])-1,3)` increased monthly hazard of death.
+
+#### Check assumption
+
+Everytime you apply a specific model to your data set, it is important to check
+whether or not you violate the assumption of this model. Remember a fundamental assumption
+of the Cox proportional hazards model is that the model assumes the hazard is constant
+with the time passing by. For instance, our basic interest is to evaluate the relationship of 
+RHC treatment to the hazard of death, controlling for possible confounding variables which might
+be related to death. But what if some variables' values change over time?
+
+Graphical methods are useful to check the assumption. A plot that shows a non-random pattern 
+against time is a violation of the assumption. Here are some examples.
+
+In general, we would like to plot $ln(-ln(S(t)))$ vs. $ln(t)$ to look for parallelism.
+
+  
+<center>
+![](doc/check.jpeg)
+</center>
+
+
+
+Another method using statistical test and graphical diagnostics is based on 
+[Schoenfeld residuals](https://www.mbaskool.com/business-concepts/statistics/8766-schoenfeld-residuals-test.html). 
+`cox.zph()` function in `survival` package tests proportionality for all covriates in the model by 
+creating interactions terms with time, and test their independence. It also performs a global test for the model as a whole.
+
+To illustrate the test, we use our data set as an example, just put the cox model `fit1` in this function:
+
+```{r}
+check.ph <- cox.zph(fit1)
+check.ph 
+```
+
+function `cox.zph()` creates a `cox.zph` object that contains a list of Schoenfeld residuals. 
+The last column  is the p-value for time independence test for all covariates. The last row 
+contains the global test for all the interactions tested at once. 
+
+We notice p-value for `resp` and `ph` are less than 0.05 so they may violate the assumption.
+However, the p-value for global test is lager than 0.05 so it is not statistically 
+significant, which means we can assume the proportion hazard. The seeming conflict between two conclusions
+can be solved by graphical diagnostic using the function `ggcoxzph()` in package `survminer`.
+
+
+By specifying a particular element of the list it is possible to generate plots of residuals 
+for individual predictors. In the plots a non-zero slope is evidence against proportionality. 
+Here we choose 4 variables,`age`, `sex`, `resp` and `ph`. Based on p-value, `resp` and `ph` violate assumption
+while `age` and `sex` don't. We want to see if there exist an obvious difference in graphical diagnostic.
+
+```{r,fig.width=9, fig.height=5.5}
+#get graphical diagnostic for `age`, `sex`, `resp` and `ph`
+plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,27,30)]
+#plot them in one chunk
+grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
+
+```
+
+`grid.arrange()` function in package `gridExtra` is used to arrange several plots in one chunk.
+`ggcoxzph` returns an object which is a list of ggplots rather than a plot grob. To convert them,
+we use `ggplotGrob()` funciton in package `ggplot2` to generate a ggplot2 plot grob that can be 
+understood with function `grid.arrange()`.
+
+In the figures above, the solid line is a smoothing spline fit to the plot, with the dashed lines 
+representing confidence interval. As we said, apparent departure from a horizontal line indicates
+violation for assumption. All of these 4 variables have a zero slope, meaning the assumption
+is supported. We are likely to accept results provided by graphical dignostics and here is explanation:
+[see @rhc_ref2]
+
+> "We prefer graphical checks to formal goodness-of-fit test because we believe that the proportional
+hazards assumption only approximates the correct model for a covariate and any formal test, based on
+a large enough sample, will reject the null hypothesis of proportionality."
 
 
 ### Adjusted Survival Plot
 
-Having fit a Cox proportional hazards model to the data, it is often of interest
-to examine the estimated distribution of survival times. The `survfit()` function 
-estimates $S(t)$, by default at the mean values of the covariates.
+Having fit a Cox proportional hazards model to the data and check the assumption,
+it is often of interest to examine the estimated distribution of survival times. 
+The `survfit()` function estimates $S(t)$, by default at the mean values of the covariates.
 
-We could estimate the new survival plot by inputting the main predictor `RHC`. 
-We first code all `RHC` as 0 to predict the survival rate for 'No RHC' group, 
-and input all `RHC` as 1 to predict the survival rate for 'RHC' group.
+We could assess the impact of impact of `RHC`  on the estimated survival probability. 
+In this case, we constructed two new dataframes. In the first dataframe, we first code 
+all `RHC` as 0 to predict the survival rate for 'No RHC' group; For the second dataframe, 
+we input all `RHC` as 1 to predict the survival rate for 'RHC' group.
+
 
 ```{r}
 rhc0 <- rhc1 <- rhc_psm_df
@@ -845,7 +940,11 @@ rhc0$RHC <- 0
 rhc1$RHC <- 1
 ```
 
+Then we put these two new dataframe in function `survfit()` to predict 
+the estimated survival probability, and save them in one dataframe.
+
 ```{r}
+
 time0 <- survfit(fit1, newdata = rhc0)$surv
 time1 <- survfit(fit1, newdata = rhc1)$surv
 
@@ -862,7 +961,6 @@ for two groups, and plot it with function `geom_step()`.
 
 
 ```{r}
-
 p_cox <- ggplot(dat.time) +
   geom_step(aes(x =1:length(dat.time$t1),
                 y = t1, col = "blue")) +
@@ -881,10 +979,11 @@ ggarrange(p_km, p_cox, ncol=2)
 
 Function `theme_minimal()` gives us a minimalistic theme with no background annotations. 
 
-The final plot indicates that after adjusting the covariates, patients in RHC group 
-still have lower survival rate than No RHC group. However, the difference between these two groups 
-is not that large compared with unadjusted result. The result after adjusting all covariates 
-shows that RHC is less harmful than without modification.
+The final plot indicates the difference of survival rate between these two groups
+tenuates; But patients in RHC group still have lower survival rate than No RHC group
+even though we adjusted the covariates so it is still harmful.
+
+
 
 
 # Summary
@@ -897,31 +996,43 @@ risk of mortality even though we applied adjustment.
 
 At first we separated the dataset in two groups, No RHC group and RHC group, 
 based on the variable `RHC`. We gave a table to show the distribution of all variables
-in two groups and found some of them have large difference while others do not vary too much. 
+in two groups and visualize the difference. We found some of them have large difference, 
+such as blood pressure and PaO2/FIO2 ratio, while others do not vary too much, like age.
+
+
 Then we tried Kaplan Meier method, a non-parametric method, to find 
 the relationship of survival rate and whether a patient receive RHC treatment or not. 
 The result was shown as a survival curve plot. It provided us an initial understanding 
-that survival rate is significantly better in population managed without RHC treatment. 
+that survival rate is higher in population managed without RHC treatment. 
 
 But, since it is an observational dataset, the bias in treatment selection 
 is an unavoidable problem, resulting in lower accuracy. To solve it, we made use of 
 a causal inference method: propensity score matching. Logistic regression was 
 applied to determine the probability of receiving RHC (propensity score). 
 It represented the relationship between multiple covariates and the use of RHC 
-and was used as a criteria to match. We matched observation based on propensity score 
+and was used as a criteria to match. We matched observations based on propensity score 
 and finally kept `r 0.5*dim(rhc_psm_df)[1]` pairs. As expected, the outcomes was pretty successful
 considering a much more balanced distribution of propensity score in two groups.
 
 In the next step, we further improved our survival analysis model
-by using a parametric method: Cox proportional hazards model. All necessary variables
-were included, avoiding that we may ingore potential risks. Adjusted outcomes matched
-unadjusted outcomes: Patients with RHC treatment are less likely to survive in 30 days. 
-Nevertheless, RHC treatment was not that harmful with adjustment, proving the necessity of what we did.
+by using a parametric method: Cox proportional hazards model.
+All necessary variables were included, avoiding that we may ignore potential risks. 
+We also evaluated the proportionality assumption with graphical checks. There is no
+obvious pattern with time so the assumption is supported with our data set. 
 
-There also exists much more space for further improvement such as variable selection 
-and model engineering. There was never enough work on how to include more influential variables.
-Additionally, our outcomes seem to be opposite to the widespread belief that RHC 
-is recommended in broad clinical application, this may be caused by the confounding variables 
+Furthermore, we adjusted outcomes and found the difference of survival between two groups tenuates, 
+proving the necessity of what we did; However, survival rate for patients with RHC treatment 
+are still lower than  patients without RHC treatment so we concluded this treatment is harmful.
+
+
+There exists much more space for further improvement such as variable selection 
+and model engineering. Original data set include `r nrow(rhc)` variabels but we just used 
+`r nrow(rhc_psm_df)` variables. Undoubtedly more influential variables provide more information,
+drawing in more accurate result. You are encouraged to construct a more complex model with 
+further variable and model engineering.
+
+Our outcomes seem to be opposite to the widespread belief that RHC is 
+recommended in broad clinical application. This may be caused by the confounding variables 
 which increase the probability of receiving RHC and the probability of death overall. 
 We admit the limitation of this study and would like to receive more suggestion to 
 better understand the role of RHC. 
