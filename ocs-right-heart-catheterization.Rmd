@@ -46,7 +46,7 @@ knitr::opts_chunk$set(warning = F)
 
 [Right heart catheterization (RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery 
 catheterization, can be used to see how well or poorly a 
-patient's heart heart is pumping or to measure the 
+patient's heart is pumping or to measure the 
 pressure in a patient's heart and lungs. Broadly, 
 the procedure guides a pulmonary artery (PA) catheter 
 (a small and hollow tube) through the pulmonary artery 
@@ -150,28 +150,41 @@ The description of all variables can be found in
 As the data are avaiable online, we will import data 
 from the web directly with `read_csv()` function from the 
 [`readr` package](https://cran.r-project.org/web/packages/readr/readr.pdf) 
-as part of the `tidyverse`. This dataset was originally used in
-Connors et al. JAMA 1996;276:889-897, and has been made publicly available.
+as part of the `tidyverse`. This dataset was 
+originally used in Connors et al. 1996 [@rhc_ref1],
+and has been made publicly available.
 
 ```{r}
 file <- "http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv"
 rhc <- read_csv(file)
 ```
 
-Let's take a quick look at the data: 
+Let's take a quick look at the first 
+five rows and five columns of the dataset: 
 
 ```{r}
 rhc[1:5, 1:5]
 ```
 
+To get a sense of how many observations or columns 
+we have, we can use the `dim()` function: 
+
+```{r}
+dim(rhc)
+```
+
+We will talk more about what the column names mean
+in the next section. 
 
 # Data Wrangling
 
 ## Variable selection
 
-There are in total `r ncol(rhc)` variables and `r nrow(rhc)` observations 
-in the dataset. Here, we will only select a subset of variables.
-If you are interested, you can change the list below to include other variables as a future exercise. 
+As we saw, there are in total `r ncol(rhc)` variables 
+in the dataset. In this case study, we will select a 
+subset of variables. If you are interested, you can 
+change the list below to include other variables as 
+a future exercise. 
 
 ```{r}
 rhc_df <- 
@@ -196,7 +209,10 @@ rhc_df <-
            RHC = swang1)
 ```
 
-According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html), a summary of the variables we are interested in is given below.
+According to the 
+[codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html)
+, a summary of the variables we are interested
+in is given below.
 
 | variable names   |      meaning      |
 |---------------------------------|---------------------------------|
@@ -220,20 +236,30 @@ According to the [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataS
 | `RHC`                                  | Right heart catheterization |
 
 
+
 # Exploratory data analysis
 
-Our main topic is to investigate the influence of RHC.
-For the purpose of exploratory data analysis (EDA), let's 
-stratify the `RHC` column in the `rhc_df` dataset into two
-groups: the ones with and without the RHC procedure. Then, 
-we can summarize the potential confounders within each subgroup 
-to identify if there are differences between them. The demographics 
+Our main interest is to investigate the influence of 
+RHC on survival. but first let's use exploratory data 
+analysis (EDA) to explore the relationship of RHC 
+with other variables in our dataset. 
+
+First, we can stratify the `RHC` column in the `rhc_df` 
+dataset into two groups: the ones with and without the 
+RHC procedure. Then, we can summarize the potential
+confounders within each subgroup to identify if 
+there are differences between them. The demographics 
 can help us understand the one to one relation between 
 right heart catheterization and other variables.
 
 
-We will use function `CreateTableOne()` in [`tableone` package](https://www.rdocumentation.org/packages/tableone/versions/0.10.0) to summarize both continuous and categorical variables with respect to the `RHC` column in our dataset. 
-Then, we can use statistical tests to investigate relationships. 
+We will use function `CreateTableOne()` in 
+[`tableone` package](https://www.rdocumentation.org/packages/tableone/versions/0.10.0)
+to summarize both continuous and categorical variables 
+with respect to the `RHC` column in our dataset. Then, 
+we can use statistical tests (specifically Chi-square 
+and _t_-tests) to investigate relationship between 
+`RHC` and either continuous or categorical variables. 
 
 ```{r echo=T, results='hide'}
 tblprint <- 
@@ -256,20 +282,34 @@ kable(tblprint , "html",
 What do you see? Take a moment to reflect on what these differences suggest. 
 The unadjusted outcomes indicate that patients managed with RHC were more likely 
 to be white male, to have private insurance, to have under $11k income,
-to also have an acute kidney injury( [ARF](https://en.wikipedia.org/wiki/Acute_kidney_injury) ), 
-multisystem organ failure ( [MOSF](https://en.wikipedia.org/wiki/Multiple_organ_dysfunction_syndrome) )
-or chronic heart failure( [CHF](https://en.wikipedia.org/wiki/Heart_failure) ).
+to also have an acute kidney injury 
+([ARF](https://en.wikipedia.org/wiki/Acute_kidney_injury)), 
+multisystem organ failure ([MOSF](https://en.wikipedia.org/wiki/Multiple_organ_dysfunction_syndrome))
+or chronic heart failure ([CHF](https://en.wikipedia.org/wiki/Heart_failure)).
 Patients with RHC were less likely to have cancer. 
+
+Knowing information about how the populations between 
+patients that were or were not managed with `RHC` is 
+important because we want to identify whether `RHC` has 
+an impact on survival and not because there are other 
+differences (e.g. whether they have cancer or not) 
+in the two populations of patients. We will 
+learn in a little bit more about how to overcome these
+differences in the population. 
 
 ## Data visualization
 
-Next, let's use data visualization to explore the relationships between RHC 
-and the other variables in our dataset. Here, we will use the `ggplot2` package from the `tidyverse`.
+Next, let's use data visualization to explore the 
+relationships between RHC and the other variables in 
+our dataset. Here, we will use the `ggplot2` package 
+from the `tidyverse`.
 
-First, let's explore the `sex`, `race` and `med_ins` variables with respect to 
-the `RHC` column. We will show different barplots using the `geom_bar()` function 
-in `ggplot2`. We also use the `ggarrange` function from the [`ggpubr` package](https://cran.r-project.org/web/packages/ggpubr/index.html) to 
-arrange the subfigures into one plot. 
+First, let's explore the `sex`, `race` and `med_ins` 
+variables with respect to the `RHC` column. We will 
+show different barplots using the `geom_bar()` function
+in `ggplot2`. We also use the `ggarrange` function from the 
+[`ggpubr` package](https://cran.r-project.org/web/packages/ggpubr/index.html) 
+to arrange the subfigures into one plot. 
 
 ```{r, fig.width=11, fig.height=5}
 p1 <- rhc_df %>% 
@@ -291,16 +331,24 @@ p3 <- rhc_df %>%
 ggarrange(p1, p2, p3, ncol=3, nrow=1)
 ```
 
-The dfifference between the left plot and the other two plots, 
-is the middle and right plots use the command `position='fill'` option in the `geom_bar()` function. 
-In this case, it shows the proportion rather than count. 
+The difference between the left plot and the 
+other two plots, is the middle and right plots 
+use the command `position='fill'` option in
+the `geom_bar()` function. In this case, it 
+shows the proportion rather than count making 
+the y-axis cover the entire range between 
+0 and 1. 
 
-These plots further match our understanding of the characteristics of patients: 
-patients managed with RHC were more likely to be white male (mostly teal), 
-to have private insurance (mostly blue). Here we just provide three examples, 
-but we encourage you to try more variables that you are interested in!
+These plots further match our understanding of the 
+characteristics of patients: patients managed with 
+RHC were more likely to be white males (teal and blue
+in left two plots) and to have private insurance 
+(blue in right plot). Here we just provide three examples, 
+but we encourage you to try more variables that
+you are interested in!
 
-Besides three categorical variables, we also choose three continuous variables and visualize them.
+Besides these three categorical variables, we also 
+pick three continuous variables and visualize them.
 
 ```{r, fig.width=11, fig.height=5}
 p4 <- rhc_df %>% 
@@ -322,28 +370,33 @@ p6 <- rhc_df %>%
 ggarrange(p4, p5,p6, ncol=3, nrow=1)
 ```
 
-The age difference between the RHC and No RHC groups seem to be negligible, 
-while blood pressure and PaO2/FIO2 ratio differ largely. We see that patients who 
-receive RHC tend to have lower blood pressure than patients who are not. 
-Similarly, patients who receive RHC tend to have lower PaO2/FIO2 ratio, 
-which indicates that blood pressure and PaO2/FIO2 ratio might be related to 
+The `age` difference between the RHC and No RHC 
+groups seem to be negligible, while blood pressure 
+(`bp`) and PaO2/FIO2 ratio (`pf`) differ largely. 
+We see that patients who receive RHC tend to have 
+lower blood pressure (`bp`) than patients who do not. 
+Similarly, patients who receive RHC tend to have 
+lower PaO2/FIO2 ratio (`pf`), which indicates that 
+blood pressure and PaO2/FIO2 ratio might be related to 
 whether or not a patient receives the RHC treatment. 
-
 
 # Data analysis
 
-Because we want to investigate the impact of receiving the RHC treatment 
-on a patient's 30 day survival, we will use a branch of statistics called [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis). This can be used to
-analyze the expected duration of time until one or more events happen, 
-such as death in biological organisms and failure in mechanical systems. 
+Because we want to investigate the impact of receiving 
+the `RHC` treatment on a patient's 30-day survival,
+we will use a branch of statistics called 
+[survival analysis](https://en.wikipedia.org/wiki/Survival_analysis)
+. This can be used to analyze the expected duration of 
+time until one or more events happen, such as death in 
+biological organisms and failure in mechanical systems. 
 
 ## Survival analysis
 
 ### Outcome and time variables
 
-Before we dive into the methods for survival analysis, we need to change 
-the datatype of the `death` and `RHC` columns in the `rhc_df` dataframe. 
-Let's check out their datatype. 
+Before we dive into the methods for survival analysis, 
+we need to change the datatype of the `death` and `RHC` 
+columns in the `rhc_df` dataframe. Let's check out their datatype. 
 
 ```{r}
 str(rhc_df$death)
@@ -871,7 +924,7 @@ The first technique is to plot $ln(-ln(S(t)))$ vs. $ln(t)$ to look for paralleli
 
   
 <center>
-![](doc/support.jpeg)
+![](doc/check-support.jpeg)
 </center>
 
 In the above plot, survival curve for two groups are approximately parallel 
@@ -879,7 +932,7 @@ so the assumption holds.
 
 
 <center>
-![](doc/violate.png)
+![](doc/check-violate.png)
 </center>
 
 In this plot, survival curves cross, clearly indicating nonproportional hazard.
