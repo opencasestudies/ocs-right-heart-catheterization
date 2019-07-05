@@ -860,23 +860,33 @@ RHC treatment to the hazard of death, controlling for possible confounding varia
 be related to death. But what if some variables' values change over time?
 
 Graphical methods are useful to check the assumption. A plot that shows a non-random pattern 
-against time is a violation of the assumption. Here are some examples.
+against time is a violation of the assumption. We shall look at several graphical techniques
+to check assumption.
 
-In general, we would like to plot $ln(-ln(S(t)))$ vs. $ln(t)$ to look for parallelism.
+The first technique is to plot $ln(-ln(S(t)))$ vs. $ln(t)$ to look for parallelism.
 
   
 <center>
-![](doc/check.jpeg)
+![](doc/support.jpeg)
 </center>
 
+In the above plot, survival curve for two groups are approximately parallel 
+so the assumption holds.
 
+
+<center>
+![](doc/violate.png)
+</center>
+
+In this plot, survival curves cross, clearly indicating nonproportional hazard.
 
 Another method using statistical test and graphical diagnostics is based on 
-[Schoenfeld residuals](https://www.mbaskool.com/business-concepts/statistics/8766-schoenfeld-residuals-test.html). 
-`cox.zph()` function in `survival` package tests proportionality for all covriates in the model by 
-creating interactions terms with time, and test their independence. It also performs a global test for the model as a whole.
+`cox.zph()` function in `survival` package. It tests proportionality for all covriates 
+in the model by creating interactions terms with time, and test their independence. 
+It also performs a global test for the model as a whole.
 
-To illustrate the test, we use our data set as an example, just put the cox model `fit1` in this function:
+To illustrate the test, we use our data set as an example, just put the cox model `fit1` 
+in this function:
 
 ```{r}
 check.ph <- cox.zph(fit1)
@@ -889,14 +899,12 @@ contains the global test for all the interactions tested at once.
 
 We notice p-value for `resp` and `ph` are less than 0.05 so they may violate the assumption.
 However, the p-value for global test is lager than 0.05 so it is not statistically 
-significant, which means we can assume the proportion hazard. The seeming conflict between two conclusions
-can be solved by graphical diagnostic using the function `ggcoxzph()` in package `survminer`.
+significant, which means we can assume the proportion hazard. The seeming conflict between two conclusions can be solved by graphical diagnostic using the function `ggcoxzph()` in package `survminer`.
 
 
 By specifying a particular element of the list it is possible to generate plots of residuals 
 for individual predictors. In the plots a non-zero slope is evidence against proportionality. 
-Here we choose 4 variables,`age`, `sex`, `resp` and `ph`. Based on p-value, `resp` and `ph` violate assumption
-while `age` and `sex` don't. We want to see if there exist an obvious difference in graphical diagnostic.
+Here we choose 4 variables,`age`, `sex`, `resp` and `ph`. Based on p-value, `resp` and `ph` violate assumption while `age` and `sex` don't. We want to see if there exist an obvious difference in graphical diagnostic.
 
 ```{r,fig.width=9, fig.height=5.5}
 #get graphical diagnostic for `age`, `sex`, `resp` and `ph`
