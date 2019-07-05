@@ -33,13 +33,7 @@ references:
   publisher: Springer Science \& Business Media
   issued:
     year: 2006
-    
-
 ---
-
-
-\newpage
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -48,16 +42,16 @@ knitr::opts_chunk$set(warning = F)
 ```
 
 
-
 # Motivation
 
 [Right heart catheterization (RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery 
-catheterization, is an invasive test that mainly checks 
-the working state of the heart by guiding a pulmonary
-artery (PA) catheter (a small and hollow tube) through 
-the pulmonary artery and into the right chambers of the
-heart. Here is the video which enables you to understand
-how it works.
+catheterization, can be used to see how well or poorly a 
+patient's heart heart is pumping or to measure the 
+pressure in a patient's heart and lungs. Broadly, 
+the procedure guides a pulmonary artery (PA) catheter 
+(a small and hollow tube) through the pulmonary artery 
+and into the right chambers of the heart. Here is the
+video to help describe in more detail how it works.
 
 <div align="center">
 <iframe width="550" height="300" src="https://www.youtube.com/embed/xr-VkxUwceQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
@@ -68,41 +62,51 @@ how it works.
 [source: https://www.youtube.com/embed/xr-VkxUwceQ]
 </center>
 
-It is often the case that a foreign object enters the human body, 
-there is the risk of infection. RHC is no different. When the tube 
-is put into the artery and a dye is injected into the heart, potential 
-complications are the rupture of pulmonary artery, arrythmias of 
-the heart where the heart may skip a beat. However, the widespread belief 
-that is it beneficial and safe makes it difficult to design a randomized controlled trial (RCT). 
+However, it is often the case that when a foreign object 
+enters the human body, there is the risk of infection. RHC
+is no different. When the tube is put into the artery and 
+a dye is injected into the heart, potential complications 
+include the rupture of pulmonary artery or arrythmias of 
+the heart where the heart may skip a beat. 
 
-Without RCTs of RHCs, the only way to evaluate its effectiveness 
-is observational study. The motivation of this case study is to 
-investigate whether or not there is an impact on survival (time to death) 
-due to the use RHC or in an observational dataset. Our main predictor
-of interest is RHC, but we also want to adjust for all other potential confounders
-in the dataset. We want to know whether RHC actually improves the patients' 
-survival rate in 30 days adjusted by other baseline variables.
+To evaluate the benefit of RHCs, one approach is to use a 
+randomized controlled trial (RCT). However, because of the 
+widespread belief that RHCs are beneficial and safe, it 
+makes it difficult to use RCTs. Without RCTs of RHCs,
+another approach to evaluate its effectiveness is an
+observational study. 
 
+The motivation of this case study is to investigate 
+whether or not there is an impact on a patient's overall 
+survival (or mortality) due to the use of a patient being 
+treated with a RHC in an observational dataset. 
 
-The libraries used in this study are listed in the following table, 
-along with their purpose in this particular case study:
+Our main predictor of interest is RHC, but we also want 
+to adjust for all other potential confounders in the dataset 
+as this is an observational study. Here, we want to know 
+whether RHC actually improves the patient's overall survival 
+within 30 days of being given a RHC, but adjusted by other
+baseline variables, including age, race, blood pressure, etc.
 
-|Library|Purpose|
+In addition to loading the set of R packages from the
+[`tidyverse`](https://www.tidyverse.org) that we will use 
+for data manipulation, exploration and visualization, we also 
+use the following R packages and describe their purpose 
+for this this particular case study:
+
+|R package|Purpose|
 |---|--------------------------------------------------------------------------------------------------------------|
-|`tableone`|Creates 'Table 1' to describe baseline characteristics|
-|`kableExtra`|Helps with building common complex tables and manipulating table styles; creates awesome HTML tables|
-|`tidyverse`|A coherent system of packages for data manipulation, exploration and visualization |
-|`broom`|Takes the messy output of built-in functions in R, and turns it into tidy data frames|
-|`ggpubr`|Provides some easy-to-use functions for creating and customizing 'ggplot2'- based publication ready plots|
+|`tableone`|Creates a table ('Table 1' below) to describe baseline characteristics of the population|
+|`kableExtra`|Helps with building complex tables and manipulating table styles; creates awesome HTML tables|
+|`broom`|Takes the messy output of built-in functions in R such as `lm` or `t.test`, and turns it into tidy data frames|
+|`ggpubr`|Provides some easy-to-use functions for creating and customizing `ggplot2`- based publication ready plots|
 |`ggfortify`|Data visualization tools for statistical analysis result|
-|`gridtExtra`|Provides a number of user-level functions to work with "grid" graphics|
+|`gridExtra`|Provides a number of user-level functions to work with "grid" graphics|
 |`ggplot2`|Create elegant data visualisations using the grammar of graphics|
 |`survival`|Contains the core survival analysis routines, including definition of Surv objects, Kaplan-Meier and Cox models etc.|
 |`survminer`|Drawing Survival Curves using 'ggplot2'|
 |`knitr`|Provides a general-purpose tool for dynamic report generation in R|
 |`MatchIt`|Nonparametric preprocessing for parametric causal inference|
-
-
 
 In order to run this code please ensure you have these packages installed. 
 
@@ -122,30 +126,30 @@ library(MatchIt)
 ```
 
 
-
-
 The learning objectives for this case study include:
 
-  * causal inference
-  * propensity score matching (using the `MatchIt` package)
+  * some basic data wrangling and visualizations (using the `tidyverse` packages)
+  * a causal inference method: propensity score matching (using the `MatchIt` package)
   * multivariate logistic regression (using `stats` package)
   * survival analysis (using `survival` package)
 
-
 # What is the data?
 
-The data are available as a `.csv` at this [link](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv): The dataset pertains to day 1 of hospitalization, 
-i.e., the treatment variable `swang1` is whether or not 
-a patient received an RHC (also called the Swan-Ganz catheter) on 
-the first day in which the patient qualified for the study. The description 
-of all variables can be found in
+The data are available to download as a `.csv` at this
+[link](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv). 
+The dataset includes a set of patients who were hospitialized
+and either did or did not received an RHC (also called the 
+Swan-Ganz catheter) on day 1 of hospitalization. This
+treatment variable in the dataset is called `swang1`. 
+The description of all variables can be found in
 [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html).
 
 
 # Data Import
 
-As the data are avaiable online, we will import data from the web 
-directly with `read_csv()` function from the [`readr` package](https://cran.r-project.org/web/packages/readr/readr.pdf) 
+As the data are avaiable online, we will import data 
+from the web directly with `read_csv()` function from the 
+[`readr` package](https://cran.r-project.org/web/packages/readr/readr.pdf) 
 as part of the `tidyverse`. This dataset was originally used in
 Connors et al. JAMA 1996;276:889-897, and has been made publicly available.
 
