@@ -446,7 +446,7 @@ will focus only on right-censoring, which is the most common case in survival an
 [see @rhc_ref2]
 
 <center>
-![](doc/censoring.jpeg)
+![](doc/censor.jpeg)
 </center>
 
 Suppose there are three patients, A, B and C enroll in the study 
@@ -463,19 +463,19 @@ an important role here: the true survival times will always be equal to
 or greater than the observed survival time.
 
 
-### Kaplan Meier (non-parametric)
+### Kaplan-Meier (non-parametric)
 
-In consideration of right censoring, Kaplan Meier estimator can be a good choice 
+In consideration of right censoring, Kaplan-Meier estimator can be a good choice 
 to reveal the survival rate accurately. In general, the survival probability 
 is calculated as one minus the death probability. At each time interval, the death probability
 equals the number of patients died divided by the number of patients at risk. 
-Here, the Kaplan Meier estimator treats those who have died, as well as those who 
+Here, the Kaplan-Meier estimator treats those who have died, as well as those who 
 are lost (censored) not be counted in the denominator. Otherwise it is likely to underestimate the 
 death probability.
 
 
 
-The [Kaplan Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
+The [Kaplan-Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
 is a non-parametric method used to estimate the survival probability. 
 It is often used to estimate the survival rate stratified by some treatment of interest.
 
@@ -524,7 +524,7 @@ whether or not a patient was managed with RHC (without any covariates adjustment
 
 ```{r}
 p_km <- autoplot(fit, conf.int = FALSE) +
-  labs(title = 'Kaplan Meier Plot', 
+  labs(title = 'Kaplan-Meier Plot', 
        y = 'survival probability',
        x = 'survival time',
        color = 'RHC', fill = 'RHC') +
@@ -565,9 +565,8 @@ propensity score matching in the next few sections as a way to do this.
 ## Propensity score matching
 
 As we mentioned above, it is a popular belief that
-it is beneficial for patients to be managed by RHC [see @rhc_ref1]. 
+it is beneficial for patients to be managed by RHC [see @Connors_1996]. 
 Therefore, a RCT is more difficult to implement.
-[1](https://www.ncbi.nlm.nih.gov/pubmed/8782638) 
 The paper explains this phenomenon like this: 
 
 > "In observational studies, the treatment selection has connection 
@@ -725,7 +724,7 @@ estimated propensity scores is necessary. That is what we calculated in previous
 
 ```{r}
 epsilon <- 0.2*sd(log(p_rhc/(1-p_rhc)))
-
+set.seed(1234)
 psm_mod <- matchit( RHC ~ age + sex + race + education +
            income + med_ins + disease + cancer +
            weight + temp + bp + resp + hrt + pf +
@@ -849,7 +848,7 @@ different covariates matrix $X_1$ and $X_2$, the ratio of their hazard is:
 
 $$ \frac{h(t|X_1)}{h(t|X_2)}=\frac{h_0(t) e^{\beta X_1}}{h_0(t) e^{\beta X_2}}=e^{\beta (X_1-X_2)}$$
 
-which is a constant. So the hazard rates are proportional. We will check this assumption
+which is a constant with respect to time. So the hazard rates are proportional. We will check this assumption
 when we apply the model on our data set.
 
 #### 4. Other resources
@@ -890,7 +889,6 @@ Just notice the structure of `rhc_psm_df`.
 
 ```{r}
 colnames(rhc_psm_df)
-#colnames(rhc_df)
 ```
 
 Besides the origin variables, `rhc_psm_df` also includes propensity socre(`distance`) 
@@ -903,7 +901,7 @@ the model with all other variables.
 ```{r}
 fit1 <- coxph(Surv(time, death) ~ . - time - death -
               distance - weights, 
-              data = rhc_psm_df,x=TRUE)
+              data = rhc_psm_df)
 res <- tidy(fit1)
 head(res)
 ```
@@ -951,52 +949,87 @@ survival curve so the assumption holds.
 In this plot, survival curves cross, clearly indicating nonproportional hazard.
 
 Another method using statistical test and graphical diagnostics is based on 
-`cox.zph()` function in `survival` package. It tests proportionality for all covriates 
-in the model by creating interactions terms with time, and test their independence. 
-It also performs a global test for the model as a whole.
+`cox.zph()` function in `survival` package. It tests proportionality for all
+covriates in the model by creating interactions terms with time, and test 
+their independence. It also performs a global test for the model as a whole. 
 
-To illustrate the test, we use our data set as an example, just put the cox model `fit1` 
-in this function:
+For instance, if your original model is $log~h(t)= \alpha+\beta~X$, 
+to test whether $X$ is time-varying, it creates an interaction term 
+$X*log~t$ and now the model is $log~h(t)= \alpha+\beta~X+ \beta^{'}(X*log~t)$. 
+Thus, a test of $H_0: \beta^{'}=0$ is applied and we can get associated 
+p-value. A low p-value (under 0.05) may indicates the variable is time-varying.
+
+
+To illustrate the test, we use our data set as an example, just put
+the cox model `fit1` in this function:
 
 ```{r}
-check.ph <- cox.zph(fit1)
+check.ph <- cox.zph(fit1, transform = 'log')
 check.ph 
 ```
 
-function `cox.zph()` creates a `cox.zph` object that contains a list of Schoenfeld residuals. 
-The last column  is the p-value for time independence test for all covariates. The last row 
-contains the global test for all the interactions tested at once. 
+function `cox.zph()` creates a `cox.zph` object that contains a list of 
+Schoenfeld residuals. The last column  is the p-value for time independence
+test for all covariates. The last row contains the global test for 
+all the interactions tested at once. `transform` specifies how the 
+survival times should be transformed before the test is performed. 
+We use `transform = log` to get $X*log~t$. Default is `km`, which 
+is Kaplan-Meier estimator.
 
-We notice p-value for `resp` and `ph` are less than 0.05 so they may violate the assumption.
-However, the p-value for global test is lager than 0.05 so it is not statistically 
-significant, which means we can assume the proportion hazard. The seeming conflict between two conclusions can be solved by graphical diagnostic using the function `ggcoxzph()` in package `survminer`.
 
+We notice p-value for `education`, `diseaseComa`, `diseaseCOPD` and `ph` are 
+less than 0.05 so they may violate the assumption. Can we conclude they are time-varying? 
+To your surprise, we can't. Just think about the variables' definition. 
 
-By specifying a particular element of the list it is possible to generate plots of residuals 
-for individual predictors. In the plots a non-zero slope is evidence against proportionality. 
-Here we choose 4 variables,`age`, `sex`, `resp` and `ph`. Based on p-value, `resp` and `ph` violate assumption while `age` and `sex` don't. We want to see if there exist an obvious difference in graphical diagnostic.
+| variable names   |      meaning      |
+|------------|---------------------------------|
+| `education`     | Years of education |
+| `disease`       | Primary disease category  |
+| `ph`            | PH   |
+| `time`          | Survival time of each patient in 30 days  |
 
-```{r,fig.width=9, fig.height=5.5}
-#get graphical diagnostic for `age`, `sex`, `resp` and `ph`
-plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,27,30)]
+Suppose we accept the result based on p-value, a patient's years of 
+education would vary in these 30 days, which violates the common sense.
+How to explain this seeming conflict? Actually, p-value is not the only 
+criterior. Even under the null hypothesis, some covriates' p-value
+may be lower than 0.05 by chance. Especially when there are lots of 
+variables, a subtle deviance will be reflected on p-value. 
+
+With this in mind, graphical diagnostic may be a better choice.
+Function `ggcoxzph` in package `survminer` comes into our mind.
+By specifying a particular element of the list, it is possible to 
+generate plots of residuals for individual predictors and
+a non-zero slope is an evidence against proportionality. 
+
+Here we choose 6 variables,`age`, `sex`,  `education`, `diseaseComa`,
+`diseaseCOPD` and `ph`. Based on p-value, the last four violate assumption 
+while `age` and `sex` don't. We want to see if there exist an obvious difference 
+in graphical diagnostic.
+
+```{r,fig.width=9, fig.height=8}
+#get graphical diagnostic for `age`, `sex`, `education`, `diseaseComa`, `diseaseCOPD` and `ph`
+plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,5,17,18,30)]
 #plot them in one chunk
 grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
 
 ```
 
-`grid.arrange()` function in package `gridExtra` is used to arrange several plots in one chunk.
-`ggcoxzph` returns an object which is a list of ggplots rather than a plot grob. To convert them,
-we use `ggplotGrob()` funciton in package `ggplot2` to generate a ggplot2 plot grob that can be 
+`grid.arrange()` function in package `gridExtra` is used to arrange several 
+plots in one chunk. `ggcoxzph` returns an object which is a list of ggplots 
+rather than a plot grob. To convert them, we use `ggplotGrob()` funciton 
+in package `ggplot2` to generate a ggplot2 plot grob that can be 
 understood with function `grid.arrange()`.
 
-In the figures above, the solid line is a smoothing spline fit to the plot, with the dashed lines 
-representing confidence interval. As we said, apparent departure from a horizontal line indicates
-violation for assumption. All of these 4 variables have a zero slope, meaning the assumption
-is supported. We are likely to accept results provided by graphical dignostics and here is explanation:
-[see @Klein_2006]
+In the figures above, the solid line is a smoothing spline fit to the plot, 
+with the dashed lines representing confidence interval. As we said, 
+apparent departure from a horizontal line indicates violation for assumption. 
+All of these 6 variables have a zero slope, meaning the assumption
+is supported. We are likely to accept results provided by graphical 
+dignostics and here is explanation [see @Klein_2006]:
 
-> "We prefer graphical checks to formal goodness-of-fit test because we believe that the proportional
-hazards assumption only approximates the correct model for a covariate and any formal test, based on
+> "We prefer graphical checks to formal goodness-of-fit test because 
+we believe that the proportional hazards assumption only approximates
+the correct model for a covariate and any formal test, based on
 a large enough sample, will reject the null hypothesis of proportionality."
 
 
@@ -1078,7 +1111,7 @@ in two groups and visualize the difference. We found some of them have large dif
 such as blood pressure and PaO2/FIO2 ratio, while others do not vary too much, like age.
 
 
-Then we tried Kaplan Meier method, a non-parametric method, to find 
+Then we tried Kaplan-Meier method, a non-parametric method, to find 
 the relationship of survival rate and whether a patient receive RHC treatment or not. 
 The result was shown as a survival curve plot. It provided us an initial understanding 
 that survival rate is higher in population managed without RHC treatment. 
