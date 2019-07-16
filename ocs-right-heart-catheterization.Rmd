@@ -36,9 +36,8 @@ references:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(message = F)
-knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE)
 ```
 
 
@@ -151,7 +150,7 @@ As the data are avaiable online, we will import data
 from the web directly with `read_csv()` function from the 
 [`readr` package](https://cran.r-project.org/web/packages/readr/readr.pdf) 
 as part of the `tidyverse`. This dataset was 
-originally used in Connors et al. 1996 [@Connors_1996],
+originally used in in this paper [@Connors_1996],
 and has been made publicly available.
 
 ```{r}
@@ -397,25 +396,87 @@ whether or not a patient receives the RHC treatment.
 Because we want to investigate the impact of receiving 
 the `RHC` treatment on a patient's 30-day survival,
 we will use a branch of statistics called 
-[survival analysis](https://en.wikipedia.org/wiki/Survival_analysis)
-. This can be used to analyze the expected duration of 
+[survival analysis](https://en.wikipedia.org/wiki/Survival_analysis).
+These methods can be used to analyze the expected duration of 
 time until one or more events happen, such as death in 
 biological organisms and failure in mechanical systems. 
 
 ## Survival analysis
 
-### Outcome and time variables
+### Right censoring
 
-Before we dive into the methods for survival analysis, 
-we need to change the datatype of the `death` and `RHC` 
-columns in the `rhc_df` dataframe. Let's check out their datatype. 
+Before we talk about survival analysis, we need to talk about a 
+type of time to event data in which the value of a measurement 
+or observation is only partially known. This is known as 
+[censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). 
+There are various kinds of censoring, but here we will focus 
+only on left- and right-censoring. Right censoring is one of the 
+most common type of censoring in survival analysis [see @rhc_ref2].
+
+<center>
+![](doc/censor.jpeg)
+</center>
+
+Suppose there are three patients, A, B and C enroll in the study 
+at time $t_0$ and the length of this study is $T$. Assume patient
+A died at time $t_1$. In this case, we know his exact survival 
+time and this patient is not censored. Next, assume 
+patient B was alive at the end of the study ($T$). In this case, 
+we treat this patient as _right censored_ because we know the patient
+was alive at time $T$, but is unknown when death happened afterwards. 
+Therefore, right censoring can play an important role here: the 
+real survival times will always be equal to or greater than the 
+observed survival time.
+
+
+### Kaplan-Meier (non-parametric)
+
+In consideration of right censoring, Kaplan-Meier estimator can be a 
+good choice to estimate the survival rate. In general, the survival 
+probability is calculated as one minus the probablity of death. 
+At each time interval, the probability of death equals the number 
+of patients who died divided by the number of patients at risk 
+of dying. Here, the Kaplan-Meier estimator treats those who have 
+died, as well as those who are lost (censored) not be counted 
+in the denominator. Otherwise it is likely to underestimate the 
+probability of death. 
+
+The [Kaplan-Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
+is a non-parametric method used to estimate the probability 
+of survival. It is often used to estimate the survival probability
+stratified by some treatment of interest, such as `RHC`.
+
+The `Surv()` function in the 
+[`survival` package](https://www.rdocumentation.org/packages/survival/versions/2.11-4)
+uses a specialize class from the `survival` package to create a specialized object. 
+It takes as input both the time to the event (`time`) and whether or not the event
+has happened by the end of the study (`death`) and then creates an object 
+that describes when right censoring has occurred. 
+
+Let's look at the `Surv()` function help file
+
+```{r, eval=FALSE}
+?Surv
+```
+
+We see that the `time` and `death` variables need to be ... 
+
+Let's look at the data type of the the `death` and `RHC` 
+columns in the `rhc_df` dataframe. 
 
 ```{r}
 str(rhc_df$death)
 str(rhc_df$RHC)
 ```
 
-We see they are character strings. We want to convert the datatype of these 
+We see they are character strings. 
+
+Before we dive into the methods for survival analysis, 
+we need to change the datatype of the `death` and `RHC` 
+columns in the `rhc_df` dataframe. Let's check out their datatype. 
+
+
+We want to convert the datatype of these 
 columns to a numeric. To do this we will use the `as.factor()` 
 and `as.numeric()` functions to transform the factor as 
 numerical variable. In our case, after these steps, 
@@ -435,72 +496,25 @@ str(rhc_df$death)
 str(rhc_df$RHC)
 ```
 
-
-### Right censoring
-
-One additional problem we need to be aware of when talking about time to event data is 
-[censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). 
-Censoring is a type of event in which the value of a measurement or observation 
-is only partially known. There are various kinds of censoring, but here we 
-will focus only on right-censoring, which is the most common case in survival analysis.
-[see @rhc_ref2]
-
-<center>
-![](doc/censor.jpeg)
-</center>
-
-Suppose there are three patients, A, B and C enroll in the study 
-and the period of this study is $T$. Patients A died at time $t_1$
-so he requires no censoring since we know his exact survival time; 
-Patients B quit the study at time $t_2$ (where $t_2<T$). There are 
-many possibilities why he quit, such as he changed his phone number, 
-so we can't contact him. In this case, he needs to be censored 
-since we just know he survived until $t_2$, but have no idea of his exact survival time; 
-Patients C was alive at the end of the study, so his survivial time is $T$. 
-However, he also needs to be censored! Why? This is because we still don't know 
-his exact survival time either. Therefore, right censoring can play 
-an important role here: the true survival times will always be equal to 
-or greater than the observed survival time.
-
-
-### Kaplan-Meier (non-parametric)
-
-In consideration of right censoring, Kaplan-Meier estimator can be a good choice 
-to reveal the survival rate accurately. In general, the survival probability 
-is calculated as one minus the death probability. At each time interval, the death probability
-equals the number of patients died divided by the number of patients at risk. 
-Here, the Kaplan-Meier estimator treats those who have died, as well as those who 
-are lost (censored) not be counted in the denominator. Otherwise it is likely to underestimate the 
-death probability.
-
-
-
-The [Kaplan-Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
-is a non-parametric method used to estimate the survival probability. 
-It is often used to estimate the survival rate stratified by some treatment of interest.
-
-The `Surv()` function in the 
-[`survival` package](https://www.rdocumentation.org/packages/survival/versions/2.11-4)
-uses a specialize class from the `survival` package to create a specialized object. 
-It takes as input both the time to the event (`time`) and whether or not the event
-has happened by the end of the study (`death`) and then creates an object 
-that describes when right censoring has occurred. 
+Now we are ready to run the `Surv()` function. 
 
 ```{r}
 sur_obj <- Surv(rhc_df$time, rhc_df$death) 
 sur_obj[1:10]
 ```
 
-The `sur_obj` can be interpreted by the `survfit()` function from 
-the `survival` package (see below) which is used to 
-compute an estimate of a survival curve for censored data.
-Do you see `+` behind survival times? This is what we discussed before - 
-right censored data points. 30+ indicates this patient survived until 
-the end of the study while 2 means this patient died at the second day after study began. 
+Do you see `+` behind survival times? This is an example of what 
+we discussed before - right censored data points. `30+` indicates 
+this patient survived until the end of the study while the `2`
+means this patient died at the second day after study began. 
 
-In addition to `sur_obj` object that we created, `survfit()` function 
-also includes as input the response variable of interest 
-in a simple case of right-censored data. 
+Also, the `sur_obj` object can be interpreted by the 
+`survfit()` function from the `survival` package 
+(see below) which is used to compute an estimate of a 
+survival curve for censored data.
+In addition to `sur_obj` object that we created, the
+`survfit()` function also includes as input the response 
+variable of interest in a simple case of right-censored data. 
 Here that is the `RHC` variable. 
 
 ```{r}
@@ -511,16 +525,21 @@ fit
 The total number of the patients managed by RHC is 
 `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and 
 `r sum(rhc_df$RHC == 1, na.rm = TRUE)-fit$n.censor[58]` of them
-died in 30 days (`r 1-(fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE))`). 
+died within 30 days (or a proportion of 
+`r round(1-(fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)),2)`). 
 The total number of the patients not having RHC is 
 `r sum(rhc_df$RHC == 0, na.rm = TRUE)`, and 
 `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them 
-died in 30 days (`r 1-(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE))`).
+died in 30 days (or a proportion of `r round(1-(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)),2)`).
 
-To show the survival curve, the `autoplot()` function from the `ggplot2` package
-can be used to create a Kaplan-Meier for `survfit` objects. 
-We can also use this to show the survival rate stratified by
-whether or not a patient was managed with RHC (without any covariates adjustment).
+To show the survival curve, the `autoplot()` function 
+from the `ggplot2` package can be used to create a Kaplan-Meier curve
+for `survfit` objects. We can also use this to show the survival rate 
+stratified by whether or not a patient was managed with `RHC`. 
+
+**Note**: Here we are not adjusting for any other covariates, 
+and we are only considering the `RHC` variable. In the sections below, 
+we will discuss how to adjust for other covariates. 
 
 ```{r}
 p_km <- autoplot(fit, conf.int = FALSE) +
@@ -537,28 +556,30 @@ p_km
 
 The x-axis is the survival time, and the y-axis is 
 the survival probability. It looks like a step function 
-since the probability changes each day (the data only record the event daily).
+since the probability changes each day (the event 
+data are recorded daily).
 
 Some of the description of the plot: at the beginning, 
 all the patients are alive. The survival probability at 
-the end of 30 days of patients having a right catheterization is 
-`r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` 
+the end of 30 days of a patient having a right catheterization 
+is `r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` 
 and `r fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)` 
 for patients not having the right catheterization. 
 
-We see the difference in the Kaplan-Meier plot and it seems that
+We see from the Kaplan-Meier plot and that
 patients with RHC treatment have a lower survival rate. 
 But, think back to the 'Data visualization' section. 
 We also saw a difference in the distribution for covariates 
 such as blood pressure. This suggests that patients who are or are not 
-managed by RHC might be different populations of patients. 
-Therefore, the difference in survival rates might be driven by differences in 
-the covariates. Our goal is to determine whether RHC has an impact on survival, 
-but we want to make a fair comparison between the patients 
-managed with and without RHC. Therefore, we are curious if 
-there is still a difference in surival after adjusting for 
-potential confounders with the other variables. 
-To do this, we will introduce propensity scores and 
+managed by RHC might be different populations of patients driven 
+by other covariates. Therefore, the difference in observed 
+survival rates might be driven by differences in 
+the other covariates. Our goal is to determine whether RHC 
+has an impact on survival, but we want to make a fair 
+comparison between the patients managed with and without RHC. 
+Therefore, we are curious if there is still a difference in 
+survival after adjusting for potential confounders with the 
+other variables. To do this, we will introduce propensity scores and 
 propensity score matching in the next few sections as a way to do this. 
 
 
@@ -566,85 +587,102 @@ propensity score matching in the next few sections as a way to do this.
 
 As we mentioned above, it is a popular belief that
 it is beneficial for patients to be managed by RHC [see @Connors_1996]. 
-Therefore, a RCT is more difficult to implement.
-The paper explains this phenomenon like this: 
+Therefore, a RCT is not possible. The Connors et al. paper
+explains this phenomenon like this: 
 
 > "In observational studies, the treatment selection has connection 
-with patients characteristics but also has link with the outcomes. 
+with patients characteristics but also has a link with the outcomes. 
 For example, patients with lower blood pressure are more likely to get RHC, 
 and they are also more likely to die. The effect of such treatment selection bias 
 has been called "confounding by indication". 
 
-In the next section, we will introduce propensity scores as a way to treatment selection bias. 
+In the next section, we will introduce propensity scores 
+as a way to adjust for treatment selection bias. 
 
 ### Propensity score
 
-Propensity score is defined as the probability of receving treatment with consideration of 
-the complete information about this patient. Information may include `age`, `gender` 
-and `blood pressure` etc. To estimate the propensity score, these information are 
-treated as explanatory variables in logistic regression while the response variable is a
-binary variable indicating whether or not this patient receive treatment.
-
+Propensity score is defined as the probability of receving treatment 
+with consideration of the complete information about this patient. 
+Information may include `age`, `gender` and `blood pressure` etc. 
+To estimate the propensity score, these information are treated as 
+explanatory variables in a logistic regression model while the 
+response variable is a binary variable indicating whether or not 
+this patient receive treatment (`RHC`).
 
 
 ### Propensity score matching
 
 To adjust for treatment selection bias, the variables that
 independently affect the decision to use or withhold the treatment 
-must be identified and measured, that's why we introduce [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching) here.
+must be identified and measured. Here we will accomplish that
+with what's called 
+[propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching). 
 
 In a statistical analysis with observational data, PSM is 
-a matching technique that attempts to estimate the effect of a treatment, policy, 
-or other intervention by modeling covariates that predict receiving, 
-for example the treatment. PSM attempts to reduce the bias due to 
-the confounding variables that could be found in an estimate of 
-the treatment effect obtained from simply comparing outcomes among units 
-that received the treatment versus those that did not. 
+a matching technique that attempts to estimate the effect of a
+treatment, policy, or other intervention by modeling covariates
+that predict receiving, for example the treatment. PSM attempts 
+to reduce the bias due to the confounding variables by ensuring
+that outcomes among units that received the treatment are 
+compared fairly to outcomes that did not receive the treatment. 
+When we say "fairly", we mean that the outcomes have similar 
+probabilities of receiving the treatment. 
 
-In conclusion, the general procedures of PSM include:
+In general, the procedures of PSM include:
 
 * Run logistic regression:
     + Dependent variable: Y = 1, if with RHC; Y = 0, otherwise.
     + Choose appropriate confounders and apply multivariate logistic regression.
-    + Obtain propensity score, which is the predicted probability(p). Higher score indicates a higher probability of receiving the treatment.
+    + Obtain propensity score, which is the predicted probability (p). A higher score indicates a higher probability of receiving the treatment.
 
 * One-to-one matching on propensity score:
     + Randomly select one patient with RHC.
-    + Match this patient who has the closest propensity score in all patients with RHC. The difference should less than a certain threshold. (discuss later)
+    + Match this patient who has the closest propensity score in all patients without RHC. The difference should less than a certain threshold. (we will discuss the threshold later)
     + Continue this matching until all possible pairs were identified.
     
-  
+Let's use a plot to explain how the matching works. 
+
 <center>
 ![](doc/psm.png)
 </center>
 
-To enhance your understanding, we use a plot to explain it. Each dot represents a sample
-in the observational study, lying in corresponding line segment(range from 0 to 1). 
-The position reflects the propensity score. The righter it is, the larger propensity score it has. 
-Original dataset includes 5 patients with RHC treatment(teal) and 
-5 patients without RHC treatment(red). Once we collected the features, 
-logistic regression will be fit and propensity score will be calculated. 
-Next they will be matched based on propensity score. The closer their propensity score are,
-the more likely they will be matched as a pair. 
+Each dot represents a patient in the observational study along the
+corresponding line segment (a propensity to receive the treatment 
+ranging from 0 to 1). The position reflects the propensity score. 
+On the right side, the large propensity score reflects a high probability 
+of receiving the treatment and vice versa for the left side.
+In the cartoon, there are 5 patients who receive the RHC treatment (teal) 
+and 5 patients without RHC treatment (red). Using the covariates in a 
+logistic regression model, we estimate the propensity score. Then,
+we match patients based on propensity score across the two groups. 
+The closer their propensity score is,the more likely they will be 
+matched as a pair. 
 
-There are 3 pairs in the middle: A1 and B1, A2 and B2, A3 and B3, since it is obvious
-their propensity score are close. However, there are 2 samples on the left part in No RHC group 
-and 2 samples on the right part in RHC group fail to pair up with others(separated by dashed line). 
+Here, there are 3 pairs in the middle: A1 and B1, A2 and B2, A3 
+and B3, as these are the closest matching pairs. However, there are 
+2 samples on the left part in No RHC group 
+and 2 samples on the right part in RHC group that do not have patients 
+to match with across the two groups (separated by dashed line). 
 This is because there isn't any sample whose propensity score are close to them. 
-In this case, they fail to be matched and will be removed. Finally, 3 pairs are matched successfully 
-so the matched dataset consist of 3 samples with RHC treatment and 3 samples without RHC treatment.
+In this case, they fail to be matched and will be removed from downstream
+analyses. After the matching is complete, we have 3 pairs of patients that 
+are matched successfully (or 3 samples with RHC treatment and 3 samples 
+without RHC treatment).
 
 ### Estimate propensity scores
 
 As we mentioned above, propensity score is calculated by logistic regression
-in which the treatment assignment is the dependent variable.
-`glm()` function in the [`stats` package](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/00Index.html) 
-is a widely used to estimate generalized linear models. 
-The argument `family =` provides a convenient way to specify the details of the models used. 
-Here, we set `binomial(link = "logit")` so it will apply logistic regression.
+in which the treatment assignment is the dependent variable. The
+`glm()` function in the 
+[`stats` package](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/00Index.html) 
+is widely used to estimate generalized linear models. 
+The argument `family =` provides a convenient way to specify the 
+details of the models used. Here, we set `binomial(link = "logit")` 
+so to fit a logistic regression model.
 
-We exclude time and death here because this two variables has no relationship with 
-treatment assignment (`RHC`). 
+We exclude `time` and `death` here because these two variables have no 
+relationship with treatment assignment (`RHC`) and only relate 
+to the survival analysis that we will perform later on. 
 
 ```{r}
 psm_glm <- glm(RHC ~ . - time - death, 
@@ -652,10 +690,11 @@ psm_glm <- glm(RHC ~ . - time - death,
                data = rhc_df)
 ```
 
-Using this model, it is easy to calculate the propensity score for each patient. 
-It is simply the patient's predicted probability of receiving RHC, 
-given the estimates from the logit model. Then, we calculated this propensity score 
-with the help of `predict()` and create a data frame that has the propensity score 
+Using this model, it is easy to calculate the propensity score
+for each patient. It is simply the patient's predicted probability 
+of receiving a RHC, given the estimated coefficients from the 
+logit model. Then, we can calculate this propensity score with the help 
+of `predict()` and create a data frame that has the propensity score 
 as well as the patient's actual treatment status.
 
 ```{r}
@@ -664,11 +703,12 @@ glm_df <- data.frame( p_rhc <-  predict(psm_glm, type = "response"),
                       RHC <-  psm_glm$model$RHC)
 ```
 
-inside the data frame, the `p_rhc` is the predicted probability of being assigned to RHC
-while `p_norhc` is the predicted probability of being assigned to no RHC.
+Inside the data frame, the `p_rhc` is the predicted probability of 
+being assigned to RHC, while `p_norhc` is the predicted probability of 
+being assigned to no RHC.
 
-After estimating the propensity score, we can plot the estimated propensity scores 
-by treatment status is using histograms. 
+After estimating the propensity score, we can plot the propensity
+scores by treatment status using histograms. 
 
 ```{r}
 glm_df %>%
@@ -679,21 +719,26 @@ glm_df %>%
   ylab("density") + theme_bw()
 ```
 
-Note that, you can change the `position` adjustment to use for overlapping points on the layer.
-`position = 'identity'` will place each object exactly where it falls in the context of the graph. 
-To see that overlapping we need to make the bars slightly transparent by
-setting `alpha` to a small value. Default value is 'stack'.
+Note that, you can change the `position` adjustment to use for 
+overlapping points on the layer (default value is `position =' stack'`).
+In contrast, the `position = 'identity'` argument will place each 
+object exactly where it falls in the context of the graph. 
+Finally, to see that overlapping we need to make the bars slightly 
+transparent by setting `alpha` to a small value. 
 
-It is obvious the distribution of propensity score is not balanced, that's why we will move to the next step: one-to-one matching.
+We can clearly see the distribution of propensity scores is not 
+balanced across the two groups, that's why we will move to the 
+next step: one-to-one matching.
 
 
 ### One-to-one matching on propensity score
 
-The `matchit()` function is the main command of the package [`MatchIt`](https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf), 
-which uses parametric models for causal inference to select well-matched subsets of 
-the original treated and control groups.
+The `matchit()` function is the main command of the package 
+[`MatchIt`](https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf), 
+which uses parametric models for causal inference to select well-matched
+subsets of the original treated and control groups.
 
-The arguments provided by `matchit()` function are given below:
+The arguments provided by the `matchit()` function are given below:
 
 * `formula`: Specifies the logistic regression formula you would like to use. 
 Here, we just use `psm_glm` that we created in last section.
@@ -705,25 +750,34 @@ Here, we just use `psm_glm` that we created in last section.
     has exactly the same values on each covariate. It is useless when there are too many variables.
     + `subclass`: Breaks the data set into subclasses so the distributions of 
     the covariates are similar in each subclass.
-    + `nearest`: Matches a pair that is closest in terms of a distance measure. 
-    It is the default method.
+    + `nearest`: Matches a pair that is closest in terms of a distance measure (This is the default method).
     + `optimal`: Minimize the average absolute distance across all matched pairs.
  
-* `caliper`: Nearest neighbor matching has a further restriction that 
+* `caliper`: For the nearest neighbor matching, this has a further restriction that 
 the absolute difference in the propensity scores of matched subjects must be below 
-some prespecified threshold (the `caliper` distance). [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using
+some prespecified threshold (the `caliper` distance). 
+[Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using
 a caliper size of one-fifth of a standard deviation of the sample estimated propensity scores.
 
 * `ratio`: Indicates the ratio of treatment cases to control cases to match. 
 Default is one-to-one matching. You can increase the number of control cases matched to
 each treatment case by increasing this number; usually this number is between 1 and 5.
 
-To specify the value of `caliper`, the standard deviation of the logit odds of 
-estimated propensity scores is necessary. That is what we calculated in previous section. 
-`p_rhc` will come into useful now!
+If we dig into [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title), 
+we will find that to specify the value of `caliper` (or the threshold), the 
+standard deviation of the logit odds of estimated propensity scores is 
+necessary. That is what we calculated in previous section. We see that the 
+`p_rhc` will be useful now!
+
+First let's calculate our threshold that we will use in `caliper`. 
 
 ```{r}
 epsilon <- 0.2*sd(log(p_rhc/(1-p_rhc)))
+```
+
+Then, we can run the `matchit()` function!
+
+```{r}
 set.seed(1234)
 psm_mod <- matchit( RHC ~ age + sex + race + education +
            income + med_ins + disease + cancer +
@@ -732,12 +786,18 @@ psm_mod <- matchit( RHC ~ age + sex + race + education +
            caliper  = epsilon, ratio = 1)
 
 rhc_psm_df <- match.data(psm_mod)
+colnames(rhc_psm_df)
 ```
 
-Using `match.data()` function, we can get the final dataset, `rhc_psm_df`. Note that 
-the final dataset is smaller than the original: it contains `r dim(rhc_psm_df)[1]` observations, 
-meaning that `r 0.5*dim(rhc_psm_df)[1]` pairs of treated and control observations were matched. 
-It also contains a variable called `distance`, which is the propensity score.  
+Using `match.data()` function, we can get the final dataset with matched
+patients (`rhc_psm_df`). Note that the final dataset is smaller than the 
+original: it contains `r dim(rhc_psm_df)[1]` observations, 
+meaning that `r 0.5*dim(rhc_psm_df)[1]` pairs of treated and control 
+observations were matched. It also contains a variable called `distance`, 
+which is the propensity score.  
+
+Let's check out what the distribution of propensity scores look like 
+in our matched dataset: 
 
 ```{r}
 rhc_psm_df %>%
@@ -750,22 +810,24 @@ rhc_psm_df %>%
 ```
 
 Now the distribution of propensity scores are much more balanced! 
-In addition to plot by yourself, there is another way to implement the result 
-using the [`plot()` function](https://www.rdocumentation.org/packages/MatchIt/versions/1.0-2/topics/plot.matchit) inside. 
+In addition to using `ggplot2`, there is another way to implement the result 
+using the 
+[`plot()` function](https://www.rdocumentation.org/packages/MatchIt/versions/1.0-2/topics/plot.matchit)
+inside the `MatchIt` package.
+
 ```{r}
 plot(psm_mod,type = "hist" )
 ```
 
-Just putting the model name in `plot()` can offer you a nice plot, showing the overall comparison. 
-It shows the histograms of distribution of propensity scores before and after matching. 
-The histograms before matching on the left differ, but the histograms after matching 
-on the right are more similar.
+Just putting the `psm_mod` object in `plot()` 
+can offer you a nice plot, showing the distributions of propensity 
+scores before and after matching. The histograms before matching on on the left,
+and the histograms after matching on the right. 
 
 
 ## Cox Proportional Hazard Model
 
 Given balanced data, let's continue to investigate the association of survival rate and time.
-
 
 In Kaplan-Meier plot, we created the `sur_obj` object with the time that passes(`time`), 
 the event occurs (`death`) to plot the survival curve. This non-parametric methods is a simple 
