@@ -10,29 +10,8 @@ output:
       smooth_scroll: no
   pdf_document:
     toc: yes
-references:
-- id: Connors_1996
-  title: The effectiveness of right heart catheterization in the initial care of critically III patients
-  author: 
-  - family: Connors
-    given:  Alfred F and Speroff, Theodore and Dawson, Neal V and Thomas, Charles and Harrell, Frank E and Wagner, Douglas and Desbiens, Norman and Goldman, Lee and Wu, Albert W and Califf, Robert M and others
-  journal: Jama
-  volume: 276
-  number: 11
-  URL: 'http://dx.doi.org/10.1038/nmat3283'
-  publisher: American Medical Association
-  page: 889-897
-  type: article-journal
-  issued:
-    year: 1996
-- id: Klein_2006
-  title: Survival analysis - techniques for censored and truncated data
-  author: 
-  - family: Klein
-    given:  John P and Moeschberger, Melvin L
-  publisher: Springer Science \& Business Media
-  issued:
-    year: 2006
+bibliography: ocs-right-heart-catheterization.bib
+csl: jap.csl
 ---
 
 ```{r setup, include=FALSE}
@@ -42,7 +21,6 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE,
 
 
 # Motivation
-
 [Right heart catheterization (RHC)](https://www.hopkinsmedicine.org/healthlibrary/test_procedures/cardiovascular/right_heart_catheterization_135,40), also known as pulmonary artery 
 catheterization, can be used to see how well or poorly a 
 patient's heart is pumping or to measure the 
@@ -411,7 +389,7 @@ or observation is only partially known. This is known as
 [censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). 
 There are various kinds of censoring, but here we will focus 
 only on left- and right-censoring. Right censoring is one of the 
-most common type of censoring in survival analysis [see @rhc_ref2].
+most common type of censoring in survival analysis [see @Klein_2006].
 
 <center>
 ![](doc/censor.jpeg)
@@ -443,7 +421,8 @@ probability of death.
 
 The [Kaplan-Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
 is a non-parametric method used to estimate the probability 
-of survival. It is often used to estimate the survival probability
+of survival. 'non-parametric' means it does not include 
+any kind of covariate adjustent. It is often used to estimate the survival probability
 stratified by some treatment of interest, such as `RHC`.
 
 The `Surv()` function in the 
@@ -562,8 +541,8 @@ data are recorded daily).
 Some of the description of the plot: at the beginning, 
 all the patients are alive. The survival probability at 
 the end of 30 days of a patient having a right catheterization 
-is `r fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE)` 
-and `r fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)` 
+is `r round(fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE))` 
+and `r round(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE))` 
 for patients not having the right catheterization. 
 
 We see from the Kaplan-Meier plot and that
@@ -677,8 +656,9 @@ in which the treatment assignment is the dependent variable. The
 [`stats` package](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/00Index.html) 
 is widely used to estimate generalized linear models. 
 The argument `family =` provides a convenient way to specify the 
-details of the models used. Here, we set `binomial(link = "logit")` 
-so to fit a logistic regression model.
+details of the models used. Here, since the outcomes
+is binary and we would like to fit a logistic regression model, 
+we set `binomial(link = "logit")`.
 
 We exclude `time` and `death` here because these two variables have no 
 relationship with treatment assignment (`RHC`) and only relate 
