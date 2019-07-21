@@ -407,30 +407,36 @@ real survival times will always be equal to or greater than the
 observed survival time.
 
 
-### Kaplan-Meier (non-parametric)
+### Kaplan-Meier 
 
-In consideration of right censoring, Kaplan-Meier estimator can be a 
-good choice to estimate the survival rate. In general, the survival 
-probability is calculated as one minus the probablity of death. 
-At each time interval, the probability of death equals the number 
-of patients who died divided by the number of patients at risk 
-of dying. Here, the Kaplan-Meier estimator treats those who have 
-died, as well as those who are lost (censored) not be counted 
-in the denominator. Otherwise it is likely to underestimate the 
-probability of death. 
+In consideration of right censoring, 
+[Kaplan-Meier estimator](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3059453/) 
+can be a good choice to estimate the survival rate. In 
+general, the survival probability is calculated as one 
+minus the probablity of death. At each time interval, the 
+probability of death equals the number of patients who
+died divided by the number of patients at risk of dying. 
+Here, the Kaplan-Meier estimator treats those who have 
+died, as well as those who withdraws from a study, is 
+lost to follow-up, or is alive without event occurrence 
+at last follow-up (right-censored), not be 
+counted in the denominator. Otherwise it is likely to 
+underestimate the probability of death. 
 
-The [Kaplan-Meier estimator](https://en.wikipedia.org/wiki/Kaplan???Meier_estimator) 
-is a non-parametric method used to estimate the probability 
-of survival. 'non-parametric' means it does not include 
-any kind of covariate adjustent. It is often used to estimate the survival probability
-stratified by some treatment of interest, such as `RHC`.
+The Kaplan-Meier estimator is a non-parametric method 
+used to estimate the probability of survival. You can 
+think of the method as a series of declining horizontal 
+steps which, ith a large enough sample size, approaches
+the true survival function for that population.
 
 The `Surv()` function in the 
 [`survival` package](https://www.rdocumentation.org/packages/survival/versions/2.11-4)
-uses a specialize class from the `survival` package to create a specialized object. 
-It takes as input both the time to the event (`time`) and whether or not the event
-has happened by the end of the study (`death`) and then creates an object 
-that describes when right censoring has occurred. 
+uses a specialize class from the `survival` package 
+to create a specialized object. It takes as input both 
+the time to the event (`time`) and whether or not the
+event has happened by the end of the study (`death`) 
+and then creates an object that describes when right
+censoring has occurred. 
 
 Let's look at the `Surv()` function help file
 
@@ -534,9 +540,13 @@ p_km
 ```
 
 The x-axis is the survival time, and the y-axis is 
-the survival probability. It looks like a step function 
-since the probability changes each day (the event 
-data are recorded daily).
+the survival probability. The small vertical 
+tick-marks indicate individual patients whose survival 
+times have been right-censored. It looks like a
+step function since the probability changes each 
+day (the event data are recorded daily). When no 
+truncation or censoring occurs, the Kaplan???Meier curve 
+is the complement of the empirical distribution function.
 
 Some of the description of the plot: at the beginning, 
 all the patients are alive. The survival probability at 
@@ -789,9 +799,9 @@ rhc_psm_df %>%
 
 ```
 
-Now the distribution of propensity scores are much more balanced! 
-In addition to using `ggplot2`, there is another way to implement the result 
-using the 
+Now the distribution of propensity scores are much
+more balanced! In addition to using `ggplot2`, there 
+is another way to implement the result using the 
 [`plot()` function](https://www.rdocumentation.org/packages/MatchIt/versions/1.0-2/topics/plot.matchit)
 inside the `MatchIt` package.
 
@@ -800,165 +810,202 @@ plot(psm_mod,type = "hist" )
 ```
 
 Just putting the `psm_mod` object in `plot()` 
-can offer you a nice plot, showing the distributions of propensity 
-scores before and after matching. The histograms before matching on on the left,
+can offer you a nice plot, showing the distributions
+of propensity scores before and after matching. The 
+histograms before matching on on the left,
 and the histograms after matching on the right. 
 
 
 ## Cox Proportional Hazard Model
 
-Given balanced data, let's continue to investigate the association of survival rate and time.
+Given balanced data, let's continue to investigate the 
+effect of `RHC` on the probability of survival 
+for the patients who were treated and not treated 
+with `RHC`. 
 
-In Kaplan-Meier plot, we created the `sur_obj` object with the time that passes(`time`), 
-the event occurs (`death`) to plot the survival curve. This non-parametric methods is a simple 
-comparision which can be used to get a first-step understanding. More often than not, 
-some information in the groups have additional characteristics that may influence the outcome,
-such as `blood pressure`, `age`. So it is suitable to include these confounding variables.
+In Kaplan-Meier plot, we created the `sur_obj` object 
+with the time that passes (`time`), and the event that 
+occurs (`death`) to plot the survival curve. This 
+non-parametric method is a simple comparision which 
+can be used to get a first-step understanding based on 
+single covariates (e.g. `RHC`). More often than not,
+we want to estimate survival probablities taking 
+into account additional characteristics that may
+influence the outcome, such as `blood pressure`, 
+`age`. In our case, we are interested in the effect 
+of `RHC`, but we also know there are additional 
+covariates that also might effect the outcome. So, we 
+would like to adjust for this additional covariates. 
 
-[Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model) 
-is a class of parametric survival models in statistics. It extends the original model to 
-assess simultaneously the effect of confounding variables on survival rate. After adjustment for 
-these vairables, the comparison of survival rate between RHC and No RHC group should be 
-less biased and more precise than a simple comparison.
-
-
-
-### Theoretical Concepts
-
-#### 1. Survival Function
-
-Let $T$ represent survival time and we regard it as a continuous random variable. 
-Its cumulative distribution function is
-
-$$P(t) = Pr(T \leq t)$$
-
-The complement of the distribution function is survival function $S(t)$
-
-$$S(t) = Pr(T>t) = 1 - P(t)$$
-
-To simplify, the survival rate is equal to the probability of surviving at time t 
-or one minus the probability of dying at time t.
-
-Besides $f(t) = P(t=T)$, so 
-
-$$S(t)= \int_{t}^{\infty}f(t)dt$$
-$$f(t)=-\frac{dS(t)}{dt}$$
-
-#### 2. Hazard Function
-
-It describes the probability of an event or its hazard $h(t)$ 
-if the patient survived up to that particular time point $t$.
-
-$$h(t) =\displaystyle{\lim_{x \to \Delta t}} \frac{ P(t \leq T <t+\Delta t|T \ge t)}{\Delta t}$$
-
-$$h(t) = \frac{f(t)}{S(t)}=-\frac{dln[S(t)]}{dt}$$
-a related quantity is the cumulative hazard function hazard function $H(t)$, defined by,
-
-$$H(t)=\int_{0}^{t}h(u)du=-ln[S(t)]$$
-Thus, for continuous lifetimes,
-$$S(t)=exp[-H(t)]=exp[-\int_{0}^{t}h(u)du]$$
-
-Properties of Hazard Function are given below:
-
-+ non-increasing
-
-+ survival rate at time 0 equal to 1
-
-+ survival probability at time infinity equal to 0
-
-+ the hazard function assumes proportional hazard meaning that the hazard is constant
+This is where we will introduce the
+[Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model)
+(Cox PH model), 
+which essentially is a regression model to investigate
+the association between the survival time of patients 
+and one or more predictor variables. While the 
+Kaplan-Meier curve is an example of a _univariate_ 
+analysis (only describing the survival with respect to 
+one covariate), the Cox PH model can be a _multivariate_
+model that simultaneously assesses the effect of 
+multiple covariates on survival time. 
 
 
-#### 3. Linear-like Model
+### Basics of the Cox PH model
 
-Our goal is to investigate the survival distribution with consideration of
-all other covariates. This examination entails the specification of 
-a linear-like model for the log hazard:
+The Cox PH model is expressed using the hazard function
+$h(t)$ at time $t$. The intepretation of the hazard 
+function is the risk of dying at time $t$. 
 
-$$log~h(t)= \alpha+\beta~X $$
-or equivalently,
+To understand the hazard function, let's consider the 
+survival function. If $T$ is a continous random variable 
+with probability distribution $f(t)$ and cumulative 
+distribution $F(t)$ that represents the survival time, 
+we can describe the cumulative distribution function as
 
-$$h(t)= exp(\alpha+\beta~X )$$
-where $\beta$ is the coefficients matrix and the $X$ is the covariates matrix.
+$$F(t) = Pr(T < t)$$
 
-If we set a baseline function $h_0(t) = \alpha$, we can estimate the hazard function like this:
+The complement of the cumulative distribution is 
+survival function $S(t)$
 
-$$h(t) = h_0(t) e^{\beta X}$$
+$$S(t) = Pr(T \geq t) = \int_{t}^{\infty} f(t) dt$$
 
-This model is often called 'proportional' because if we look at 2 individuals with
-different covariates matrix $X_1$ and $X_2$, the ratio of their hazard is:
+where $f(t)$ is the probability density function
+at time $t$. 
 
-$$ \frac{h(t|X_1)}{h(t|X_2)}=\frac{h_0(t) e^{\beta X_1}}{h_0(t) e^{\beta X_2}}=e^{\beta (X_1-X_2)}$$
+Now, as mentioned above, the hazard function is 
+risk of dying at time $t$. Another way of phrasing 
+this is the patient was given the patient was alive
+at time $t$, what's the conditional probability of 
+dying in the next time interval of length  $\Delta t$, 
+or that the event will occurr in the interval 
+$[t,  t+ \Delta t)$.
 
-which is a constant with respect to time. So the hazard rates are proportional. We will check this assumption
-when we apply the model on our data set.
+$$ h(t) =\displaystyle{\lim_{\Delta t \to 0}} 
+\frac{ P(t \leq T <t+\Delta t|T \ge t)}{\Delta t} 
+= \frac{ P(t \leq T <t+\Delta t)}{P(T \ge t) \Delta t} 
+= \frac{ f(t) \Delta t}{S(t) \Delta t} $$
 
-#### 4. Other resources
+which can be written as the joint probability of the event 
+occuring in the interval $[t,  t+ \Delta t)$ and $T \ge t$ 
+(which is the same as the event occuring in the interval 
+$[t,  t+ \Delta t)$), divided by the probability of $T \ge t$. 
+The numerator is just $f(t) \Delta t$ for small $\Delta t$ and 
+denominator is just $S(t)$. 
+
+If we divide by $\Delta t$ and take the limit as 
+$\Delta t \to 0$, then the hazard function is just 
+
+$$h(t) = \frac{f(t)}{S(t)}$$
+
+OK, now we are ready to get back to the Cox PH
+model. As a reminder, we noted that the Cox PH model 
+is expressed using the hazard function $h(t)$ 
+at time $t$. For the $i^{th}$ observation and a given
+set of covariates 
+$\mathbf{X}_i = \{ X_{i1}, \ldots X_{ip} \}$, 
+the Cox PH model has the form 
+
+$$h(t | \mathbf{X}_i)= h_0(t)  \exp(\beta_1 X_{i1} + \ldots \beta_p X_{ip}) 
+= h_0(t) \exp(\beta \mathbf{X}_{i}) $$
+
+where the coefficients $\beta = \{\beta_1, \ldots, \beta_p \}$
+are the effect sizes of the covariates $\mathbf{X}_i$. 
+The quantities $\exp{\beta_j}$ are called hazard ratios (HR). 
+If $\beta_j > 0$ (or $\exp{\beta_j}$ > 1), this implies as 
+$X_{ij}$ increases, the hazard increases and thus the 
+survival probability decreases. In constrast, if the HR is 
+less than 1, then this is a reduction in the hazard (or 
+and increase in survival). 
+
+**Note**: If you take the log of the hazard function, this
+becomes a linear model with a baseline hazard function 
+that varies over time. However, another link function is the 
+"complementary log-log" model (or $log(-log(1-h(t)))$), 
+which is useful when the probability of an event is very 
+small or very large. 
+
+Finally, $h_0(t)$ is the baseline hazard at time $t$. 
+This is hazard if all the $\mathbf{x}_i$ are 0. A 
+**key assumption** of the Cox PH model is 
+that the baseline hazard curves for groups of observations 
+should be proportional and cannot cross. 
+
+Let's explore what we mean by this. Consider the $i^{th}$ and
+$j^{th}$ observation with only one covariate $X_1$, but the 
+value differs between the $i^{th}$ and
+$j^{th}$ observation. The ratio of their hazard functions is
+
+$$ \frac{h_i(t|X_{1}  = x)}{h_j(t|X_{1} = x^{'})}=\frac{h_0(t) e^{\beta x}}{h_0(t) e^{\beta x^{'}}}=e^{\beta (x-x^{'})}$$
 
 
-Besides cox proportional hazard model, other parameteric models 
-for survival data are preferable under different circumstances. 
-Here we would like to give a brief description on one specific model: [complementary log log model](http://www.stat.ualberta.ca/~kcarrier/STAT562/comp_log_log)  
+which is independent with respect to time. Another way of 
+phrasing this is that the hazard of the event in any group
+is a constant multiple of the hazard in any other group. 
 
-An alternative extension of the proportional hazards model to discrete time 
-starts from the survival function, which in a proportional hazards framework can be written as:
-
-$$S(t_j)=Pr(T \geq t_j)=\sum_{i=j}^{\infty}Pr(T=t_i)$$
-
-$T$ is a  discrete random variable that takes the value$t_1<t_2<...$. 
-The relationship between sirvival function and hazard function can be written like:
-
-$$S(t_j)=(1-h_{t_1})(1-h_{t_2})...(1-h_{t_{j-1}})$$
-
-In this case, another link function is more suitable than log hazard:
-
-$$log(-log(1-h(t_j)))=\alpha_j+X_{j}\beta$$
-where $\alpha_j=log(-log(1-h_0(t_j)))$ is the baseline hazard function and $X_{j}$ is
-the covariate matrix for patient $j$
-
-When should we use it? Complementary log-log model is asymmetrical, 
-it is frequently used when the probability of an event is very small or very large.
-
+This assumption should always be checked when using the
+Cox PH model (we will do this below). 
 
 
 ### Model Application
 
-The Cox proportional hazards model is fitted by `coxph()` function, 
-located in `survival` package. Simariliy, we also need to create a survival object
-first and then fit the model.
+We can fit a Cox PH model using the `coxph()` function, 
+from the `survival` package. Similiar to the estimating a 
+Kaplan-Meier curve, we first create a survival object 
+using the `Surv()` function (e.g. `Surv(time, death)`). 
+Then, we can fit the Cox PH model using the `coxph()` 
+function using all the covariates in our dataset 
+(`rhc_psm_df`) after propensity score estimation. 
 
-Just notice the structure of `rhc_psm_df`.
+Now, if we recall the column names in our dataset, 
 
 ```{r}
 colnames(rhc_psm_df)
 ```
 
-Besides the origin variables, `rhc_psm_df` also includes propensity socre(`distance`) 
-and weight(`weights`) calcuated by `matchit()`, which we do not need in model fitting. 
-Also, `time` and `death` are incorporated to create the `sur_obj` object
-to explain right censoring. They are uncessary so we will remove them and just fit 
-the model with all other variables.
-
+we see the propensity socre (`distance`) and weights 
+(`weights`) that were calcuated by `matchit()` are 
+included, which we do not need in model fitting. We 
+also do not want to include the covariates `time` 
+or `death` as these covariates are used in the `sur_obj`
+object to note right censored observations. We can 
+tell R which variables to exclude using the `-` syntax. 
 
 ```{r}
 fit1 <- coxph(Surv(time, death) ~ . - time - death -
               distance - weights, 
               data = rhc_psm_df)
-res <- tidy(fit1)
-head(res)
 ```
 
-The `tidy()` function in the `broom` package provides a dataframe representation of
-the model's output. We just show the head of it here but you are encouraged to
-research more if you are interested in!
 
-The coefficients are interpretable as multiplicative effects on the hazard. 
-If the exponentiated coefficient is larger than 1, the variable will increase 
-the survival probability and vice versa.
+We can also use the `tidy()` function in the 
+[`broom`]()
+package to create a `tidy` representation of the 
+model output. We just show the head of it here, but 
+you are encouraged to research more if you are 
+interested in it!
 
-Thus, for example, holding the other covariates constant, an additional year of age
-increases the monthly hazard of death by `r round(exp(res[1,2])-1,4)` on average. 
-Similarly, compared with female, male have `r round(exp(res[2,2])-1,3)` increased monthly hazard of death.
+```{r}
+res <- tidy(fit1, conf.int = TRUE,
+                conf.level = 0.95)
+head(res)
+```
+Recall, the coefficients here (`estimates`) are the 
+$\beta_j$ coefficients. We can convert this to hazard ratios 
+by exponentiating the coefficients. If the exponentiated 
+coefficient is larger than 1, the variable will increase 
+the hazard of the event occuring (or decrease the 
+survival probability). 
+
+Note, we can also ask to report the coefficients 
+(`estimate`) and confidence intervals on an 
+exponential scale with the `exponentiate = TRUE`
+argument. 
+```{r}
+res_exp <- tidy(fit1, exponentiate = TRUE, 
+            conf.int = TRUE, conf.level = 0.95)
+head(res_exp)
+```
+
 
 ### Check assumption
 
