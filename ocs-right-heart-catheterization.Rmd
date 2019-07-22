@@ -399,12 +399,13 @@ Suppose there are three patients, A, B and C enroll in the study
 at time $t_0$ and the length of this study is $T$. Assume patient
 A died at time $t_1$. In this case, we know his exact survival 
 time and this patient is not censored. Next, assume 
-patient B was alive at the end of the study ($T$). In this case, 
-we treat this patient as _right censored_ because we know the patient
-was alive at time $T$, but is unknown when death happened afterwards. 
-Therefore, right censoring can play an important role here: the 
-real survival times will always be equal to or greater than the 
-observed survival time.
+patient B quitted the study at time $t_2$, before the end of the 
+study ($T$). And patient C was alive at the end of the study ($T$). 
+In these cases, we treat patient B and patient C as _right censored_ 
+because we know the patients were alive at time $t_2$ and $T$ respectively,
+but are unknown when death happened afterwards. Therefore, right 
+censoring can play an important role here: the real survival times 
+will always be equal to or greater than the observed survival time.
 
 
 ### Kaplan-Meier 
@@ -426,7 +427,7 @@ underestimate the probability of death.
 The Kaplan-Meier estimator is a non-parametric method 
 used to estimate the probability of survival. You can 
 think of the method as a series of declining horizontal 
-steps which, ith a large enough sample size, approaches
+steps which, with a large enough sample size, approaches
 the true survival function for that population.
 
 The `Surv()` function in the 
@@ -444,7 +445,11 @@ Let's look at the `Surv()` function help file
 ?Surv
 ```
 
-We see that the `time` and `death` variables need to be ... 
+We see that the `time` and `death` variables need to be 
+used to create a `surv object`, which is the response 
+varable in our survival analysis. Also, we need to 
+pay attention to the datatype of `death`.
+
 
 Let's look at the data type of the the `death` and `RHC` 
 columns in the `rhc_df` dataframe. 
@@ -455,11 +460,6 @@ str(rhc_df$RHC)
 ```
 
 We see they are character strings. 
-
-Before we dive into the methods for survival analysis, 
-we need to change the datatype of the `death` and `RHC` 
-columns in the `rhc_df` dataframe. Let's check out their datatype. 
-
 
 We want to convert the datatype of these 
 columns to a numeric. To do this we will use the `as.factor()` 
@@ -688,7 +688,8 @@ of `predict()` and create a data frame that has the propensity score
 as well as the patient's actual treatment status.
 
 ```{r}
-glm_df <- data.frame( p_rhc <-  predict(psm_glm, type = "response"),
+glm_df <- data.frame( p_rhc <-  predict(psm_glm, 
+                      type = "response"),
                       p_norhc <-  1 - p_rhc,
                       RHC <-  psm_glm$model$RHC)
 ```
@@ -745,19 +746,19 @@ Here, we just use `psm_glm` that we created in last section.
  
 * `caliper`: For the nearest neighbor matching, this has a further restriction that 
 the absolute difference in the propensity scores of matched subjects must be below 
-some prespecified threshold (the `caliper` distance). 
-[Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title) suggested using
-a caliper size of one-fifth of a standard deviation of the sample estimated propensity scores.
+some prespecified threshold (the `caliper` distance). [see @Austin_2011] suggested 
+using a caliper size of one-fifth of a standard deviation of the sample estimated 
+propensity scores.
 
 * `ratio`: Indicates the ratio of treatment cases to control cases to match. 
 Default is one-to-one matching. You can increase the number of control cases matched to
 each treatment case by increasing this number; usually this number is between 1 and 5.
 
-If we dig into [Cochran and Rubin (1973)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3144483/#s5title), 
-we will find that to specify the value of `caliper` (or the threshold), the 
-standard deviation of the logit odds of estimated propensity scores is 
-necessary. That is what we calculated in previous section. We see that the 
-`p_rhc` will be useful now!
+If we dig into [see @Austin_2011], we will find that to 
+specify the value of `caliper` (or the threshold), the 
+standard deviation of the logit odds of estimated propensity 
+scores is necessary. That is what we calculated in previous 
+section. We see that the `p_rhc` will be useful now!
 
 First let's calculate our threshold that we will use in `caliper`. 
 
@@ -779,15 +780,16 @@ rhc_psm_df <- match.data(psm_mod)
 colnames(rhc_psm_df)
 ```
 
-Using `match.data()` function, we can get the final dataset with matched
-patients (`rhc_psm_df`). Note that the final dataset is smaller than the 
-original: it contains `r dim(rhc_psm_df)[1]` observations, 
-meaning that `r 0.5*dim(rhc_psm_df)[1]` pairs of treated and control 
-observations were matched. It also contains a variable called `distance`, 
-which is the propensity score.  
+Using `match.data()` function, we can get the final 
+dataset with matched patients (`rhc_psm_df`). Note that 
+the final dataset is smaller than the original: it contains 
+`r dim(rhc_psm_df)[1]` observations, meaning that 
+`r 0.5*dim(rhc_psm_df)[1]` pairs of treated and control 
+observations were matched. It also contains a variable 
+called `distance`, which is the propensity score.  
 
-Let's check out what the distribution of propensity scores look like 
-in our matched dataset: 
+Let's check out what the distribution of propensity scores 
+look like in our matched dataset: 
 
 ```{r}
 rhc_psm_df %>%
@@ -978,7 +980,7 @@ fit1 <- coxph(Surv(time, death) ~ . - time - death -
 
 
 We can also use the `tidy()` function in the 
-[`broom`]()
+[`broom`](https://cran.r-project.org/web/packages/broom/index.html)
 package to create a `tidy` representation of the 
 model output. We just show the head of it here, but 
 you are encouraged to research more if you are 
