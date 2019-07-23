@@ -80,7 +80,7 @@ for this this particular case study:
 |`ggfortify`|Data visualization tools for statistical analysis result|
 |`gridExtra`|Provides a number of user-level functions to work with "grid" graphics|
 |`ggplot2`|Create elegant data visualisations using the grammar of graphics|
-|`survival`|Contains the core survival analysis routines, including definition of Surv objects, Kaplan-Meier and Cox models etc.|
+|`survival`|Contains the core survival analysis routines, including definition of `Surv` objects, Kaplan-Meier and Cox models etc.|
 |`survminer`|Drawing Survival Curves using 'ggplot2'|
 |`knitr`|Provides a general-purpose tool for dynamic report generation in R|
 |`MatchIt`|Nonparametric preprocessing for parametric causal inference|
@@ -187,8 +187,8 @@ rhc_df <-
 ```
 
 According to the 
-[codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html)
-, a summary of the variables we are interested
+[codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html), 
+a summary of the variables we are interested
 in is given below.
 
 | variable names   |      meaning      |
@@ -445,33 +445,39 @@ Let's look at the `Surv()` function help file
 ?Surv
 ```
 
-We see that the `time` and `death` variables need to be 
-used to create a `surv object`, which is the response 
-varable in our survival analysis. Also, we need to 
-pay attention to the datatype of `death`.
+We see we need variables for the `time` and `event` 
+arguments to create a `Surv` object. In our data frame
+we can use the `time` variable for the `time` argument. 
+For the `event` argument, we can use the `death` 
+variable, which is the response varable in our survival
+analysis. 
 
+**Not**: In the help file, for the `event` argument, 
+it states that 
 
-Let's look at the data type of the the `death` and `RHC` 
-columns in the `rhc_df` dataframe. 
+> "The status indicator, normally 0=alive, 
+1=dead. Other choices are TRUE/FALSE (TRUE = death) or 
+1/2 (2=death)."
+
+Let's look at the data type of the `death` column in 
+the `rhc_df` data frame. 
 
 ```{r}
 str(rhc_df$death)
-str(rhc_df$RHC)
 ```
 
-We see they are character strings. 
-
-We want to convert the datatype of these 
-columns to a numeric. To do this we will use the `as.factor()` 
+We see it is a vector of character strings. So to 
+create a `Surv` object, we need to convert the datatype of
+the column to a numeric. To do this we will use the `as.factor()` 
 and `as.numeric()` functions to transform the factor as 
-numerical variable. In our case, after these steps, 
-"RHC" will be encoded as 2 while "No RHC" will be encoded as 1. 
-Then we deducted it by 1 to get the numeric denotation that we want, 
-which are 1 and 0 respectively.
+numerical variable. While we here, we will also change the data 
+type of `RHC` to be encoded as a 0 for "No RHC" and a 1 for 
+"RHC" 
 
 ```{r}
-rhc_df$death <- as.numeric(as.factor(rhc_df$death)) -1
-rhc_df$RHC <- as.numeric(as.factor(rhc_df$RHC)) - 1
+rhc_df <- rhc_df %>% 
+  mutate(death = if_else(death == "No", 0, 1), 
+         RHC = if_else(RHC == "No RHC", 0, 1))
 ```
 
 Let's check on what the datatypes are now. 
@@ -534,7 +540,9 @@ p_km <- autoplot(fit, conf.int = FALSE) +
        color = 'RHC', fill = 'RHC') +
   theme_bw() +
   scale_color_manual(labels = c("No RHC", "RHC"), 
-                     values = c("red", "blue"))
+                     values = c("red", "blue")) + 
+  theme(legend.position="top")
+  
 
 p_km
 ```
@@ -711,7 +719,7 @@ glm_df %>%
 ```
 
 Note that, you can change the `position` adjustment to use for 
-overlapping points on the layer (default value is `position =' stack'`).
+overlapping points on the layer (default value is `position ='stack'`).
 In contrast, the `position = 'identity'` argument will place each 
 object exactly where it falls in the context of the graph. 
 Finally, to see that overlapping we need to make the bars slightly 
@@ -858,7 +866,7 @@ The Cox PH model is expressed using the hazard function
 $h(t)$ at time $t$. The intepretation of the hazard 
 function is the risk of dying at time $t$. 
 
-To understand the hazard function, let's consider the 
+To get a sense of what is the hazard function, let's consider the 
 survival function. If $T$ is a continous random variable 
 with probability distribution $f(t)$ and cumulative 
 distribution $F(t)$ that represents the survival time, 
@@ -899,7 +907,7 @@ $\Delta t \to 0$, then the hazard function is just
 
 $$h(t) = \frac{f(t)}{S(t)}$$
 
-OK, now we are ready to get back to the Cox PH
+Neat! OK now we are ready to get back to the Cox PH
 model. As a reminder, we noted that the Cox PH model 
 is expressed using the hazard function $h(t)$ 
 at time $t$. For the $i^{th}$ observation and a given
@@ -930,11 +938,11 @@ Finally, $h_0(t)$ is the baseline hazard at time $t$.
 This is hazard if all the $\mathbf{x}_i$ are 0. A 
 **key assumption** of the Cox PH model is 
 that the baseline hazard curves for groups of observations 
-should be proportional and cannot cross. 
+should be proportional and cannot cross.
 
 Let's explore what we mean by this. Consider the $i^{th}$ and
 $j^{th}$ observation with only one covariate $X_1$, but the 
-value differs between the $i^{th}$ and
+observed value differs between the $i^{th}$ and
 $j^{th}$ observation. The ratio of their hazard functions is
 
 $$ \frac{h_i(t|X_{1}  = x)}{h_j(t|X_{1} = x^{'})}=\frac{h_0(t) e^{\beta x}}{h_0(t) e^{\beta x^{'}}}=e^{\beta (x-x^{'})}$$
@@ -945,16 +953,42 @@ phrasing this is that the hazard of the event in any group
 is a constant multiple of the hazard in any other group. 
 
 This assumption should always be checked when using the
-Cox PH model (we will do this below). 
+Cox PH model (we give an example of this below). 
 
 
 ### Model Application
 
-We can fit a Cox PH model using the `coxph()` function, 
+Now, we can fit a Cox PH model using the `coxph()` function, 
 from the `survival` package. Similiar to the estimating a 
 Kaplan-Meier curve, we first create a survival object 
 using the `Surv()` function (e.g. `Surv(time, death)`). 
-Then, we can fit the Cox PH model using the `coxph()` 
+
+First we will fit a few univariate Cox PH models and 
+then we will fit a multivariate Cox PH model using 
+all the covariates in our dataset (`rhc_psm_df`). Both 
+of these models are using the data after adjusting for
+propensity scores.
+
+#### Univariate Cox PH model
+
+**Sheena** add text and code for univariate Cox PH models
+
+e.g. 
+
+```{r}
+fit_rhc <- coxph(Surv(time, death) ~ RHC, 
+              data = rhc_psm_df)
+
+res <- tidy(fit_rhc, conf.int = TRUE,
+                conf.level = 0.95)
+res
+```
+
+
+
+#### Multivariate Cox PH model
+
+Next, we can fit the Cox PH model using the `coxph()` 
 function using all the covariates in our dataset 
 (`rhc_psm_df`) after propensity score estimation. 
 
@@ -964,13 +998,15 @@ Now, if we recall the column names in our dataset,
 colnames(rhc_psm_df)
 ```
 
-we see the propensity socre (`distance`) and weights 
+To incorproate all the variables in the model, we can 
+use the `~ .` R model formula syntax, but we need to 
+suse the negative (`-`) syntax to exclude some variables. 
+We see the propensity socre (`distance`) and weights 
 (`weights`) that were calcuated by `matchit()` are 
 included, which we do not need in model fitting. We 
 also do not want to include the covariates `time` 
 or `death` as these covariates are used in the `sur_obj`
-object to note right censored observations. We can 
-tell R which variables to exclude using the `-` syntax. 
+object to note right censored observations. 
 
 ```{r}
 fit1 <- coxph(Surv(time, death) ~ . - time - death -
@@ -1006,96 +1042,113 @@ argument.
 res_exp <- tidy(fit1, exponentiate = TRUE, 
             conf.int = TRUE, conf.level = 0.95)
 head(res_exp)
+tail(res_exp)
 ```
 
 
 ### Check assumption
 
-Everytime you apply a specific model to your data set, it is important to check
-whether or not you violate the assumption of this model. Remember a fundamental assumption
-of the Cox proportional hazards model is that the model assumes the hazard is constant
-with the time passing by. For instance, our basic interest is to evaluate the relationship of 
-RHC treatment to the hazard of death, controlling for possible confounding variables which might
-be related to death. But what if some variables' values change over time?
+Now that we have fit our Cox PH model, let's check 
+the assumptions of the Cox PH model in our data. 
+If you recall, the **fundamental assumption** of the 
+Cox PH model is that the model assumes the hazard is
+constant with the time. For instance, in our case we 
+want to evaluate the relationship of patients being 
+managed with the RHC treatment on the hazard of death, 
+controlling for possible confounding variables which might
+be related to death. But what if some variables' values 
+change over time?
 
-Graphical methods are useful to check the assumption. A plot that shows a non-random pattern 
-against time is a violation of the assumption. We shall look at several graphical techniques
-to check assumption.
+#### Complementary log-log plot
 
-The first technique is to plot $ln(-ln(S(t)))$ vs. $ln(t)$ to look for parallelism.
+One way to do this is to use data visualizations to check 
+the assumption. A plot that shows a non-random pattern 
+against time is a violation of the assumption. 
 
+The first plot we will consider is the "complementary 
+log-log" model ($log(-log(1-h(t)))$ or $ln(-ln(S(t)))$() 
+vs. $ln(t)$. For a given variable (e.g. `RHC`), here is
+a cartoon of what it looks like if the assumption is 
+not violated:
   
 <center>
 ![](doc/check-support.jpeg)
 </center>
 
-In the above plot, there do exist parallelism. There is no difference between two 
-survival curve so the assumption holds.
-
+And here is a cartoon of what it would look like if the 
+assumption was violated: 
 
 <center>
 ![](doc/check-violate.png)
 </center>
 
-In this plot, survival curves cross, clearly indicating nonproportional hazard.
+Here we see that the survival curves cross, clearly 
+indicating a violation of the proportional hazards assumption. 
 
-Another method using statistical test and graphical diagnostics is based on 
-`cox.zph()` function in `survival` package. It tests proportionality for all
-covriates in the model by creating interactions terms with time, and test 
-their independence. It also performs a global test for the model as a whole. 
+Now let's look at it in our data: 
 
-For instance, if your original model is $log~h(t)= \alpha+\beta~X$, 
-to test whether $X$ is time-varying, it creates an interaction term 
-$X*log~t$ and now the model is $log~h(t)= \alpha+\beta~X+ \beta^{'}(X*log~t)$. 
-Thus, a test of $H_0: \beta^{'}=0$ is applied and we can get associated 
-p-value. A low p-value (under 0.05) may indicates the variable is time-varying.
+**Sheena**: Add the code for the complementary log log plot here
 
 
-To illustrate the test, we use our data set as an example, just put
-the cox model `fit1` in this function:
+#### Statistical assessments 
+
+Another approach is to use a formal statistical test to 
+asesses the proportional hazards assumption. Here we will 
+use the `cox.zph()` function in `survival` package. It tests
+for proportionality of all the variables specified in the model 
+by creating interactions terms with time (on the log scale). 
+Then, the function will test for independence for each 
+variable. It also performs a global test for all the 
+interactions tested together in the model. If the _p_-value 
+is less than 0.05, this suggests a violation of the PH
+assumption. 
+
+For instance, if our model is 
+$log~h(t|X_1)= \beta_0 + \beta_1 X_1$ (where 
+$\beta_0 = \log(h_0(t))$), to test whether $X_1$ is 
+time-varying, the `cox.zph()` function creates an 
+interaction term $X_1*log~t$ in the model. 
+Now the model is 
+
+$$log~h(t|X_1)= \beta_0 + \beta_1~X_1 + \beta_1^{'}(X_1*log~t)$$
+
+Using a null hypothesis of $H_0: \beta_1^{'}=0$, we can 
+assess whether or not there is a relationship with time by 
+if we reject or fail to reject the null hypothesis. Note, 
+a _p_-value less than a specified Type 1 error (e.g. $\alpha$ 
+= 0.05) suggests there is evidence that the variable ($X_1$) is 
+time-varying.
+
+To illustrate the test, we use our data set as an example,
+we use the `fit1` Cox PH model from above. The `transform`
+argument describes how the survival times should be
+transformed before the test is performed. For example, we 
+use `transform = log` to get $X*log~t$ in our model. 
 
 ```{r}
 check.ph <- cox.zph(fit1, transform = 'log')
 check.ph 
 ```
 
-function `cox.zph()` creates a `cox.zph` object that contains a list of 
-Schoenfeld residuals. The last column  is the p-value for time independence
-test for all covariates. The last row contains the global test for 
-all the interactions tested at once. `transform` specifies how the 
-survival times should be transformed before the test is performed. 
-We use `transform = log` to get $X*log~t$. Default is `km`, which 
-is Kaplan-Meier estimator.
+The first column (`rho`) gives the Pearson product-moment 
+correlation between the scaled Schoenfeld residuals 
+and `log(time)` for each covariate. The last row contains
+the global test for all the interactions tested at once. 
 
+We notice the _p_-value for `ph` is less than 0.05, 
+suggesting that there may be a violation of the Cox PH
+assumptions for this variable. If you recall, this variable
+represents the PH level from the patient. 
 
-We notice p-value for `education`, `diseaseComa`, `diseaseCOPD` and `ph` are 
-less than 0.05 so they may violate the assumption. Can we conclude they are time-varying? 
-To your surprise, we can't. Just think about the variables' definition. 
-
-| variable names   |      meaning      |
-|------------|---------------------------------|
-| `education`     | Years of education |
-| `disease`       | Primary disease category  |
-| `ph`            | PH   |
-| `time`          | Survival time of each patient in 30 days  |
-
-Suppose we accept the result based on p-value, a patient's years of 
-education would vary in these 30 days, which violates the common sense.
-How to explain this seeming conflict? Actually, p-value is not the only 
-criterior. Even under the null hypothesis, some covriates' p-value
-may be lower than 0.05 by chance. Especially when there are lots of 
-variables, a subtle deviance will be reflected on p-value. 
-
-With this in mind, graphical diagnostic may be a better choice.
-Function `ggcoxzph` in package `survminer` comes into our mind.
-By specifying a particular element of the list, it is possible to 
-generate plots of residuals for individual predictors and
-a non-zero slope is an evidence against proportionality. 
-
-Here we choose 6 variables,`age`, `sex`,  `education`, `diseaseComa`,
-`diseaseCOPD` and `ph`. Based on p-value, the last four violate assumption 
-while `age` and `sex` don't. We want to see if there exist an obvious difference 
-in graphical diagnostic.
+Let's explore this a bit more with a graphical assessment of 
+the Schoenfeld residuals. Here we pick out 6 variables (`age`, 
+`sex`,  `education`, `diseaseComa`, `diseaseCOPD` and `ph`)
+including the `ph` variable and graphically assessess 
+whether or not there is a relationship with time. 
+We will use the function `ggcoxzph` in package `survminer`, 
+which will generate plots of residuals for individual 
+predictors and a non-zero slope is an evidence against
+the Cox PH assumption. 
 
 ```{r,fig.width=9, fig.height=8}
 #get graphical diagnostic for `age`, `sex`, `education`, `diseaseComa`, `diseaseCOPD` and `ph`
@@ -1105,85 +1158,78 @@ grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
 
 ```
 
-`grid.arrange()` function in package `gridExtra` is used to arrange several 
-plots in one chunk. `ggcoxzph` returns an object which is a list of ggplots 
-rather than a plot grob. To convert them, we use `ggplotGrob()` funciton 
-in package `ggplot2` to generate a ggplot2 plot grob that can be 
-understood with function `grid.arrange()`.
+The `grid.arrange()` function in package `gridExtra` can be  
+used to arrange several plots in one chunk. The `ggcoxzph` 
+function returns an object which is a list of ggplot objects, 
+rather than a plot grob. To convert them, we use `ggplotGrob()` 
+function in package `ggplot2` to generate a ggplot2 plot 
+grob that can be understood with function `grid.arrange()`.
 
-In the figures above, the solid line is a smoothing spline fit to the plot, 
-with the dashed lines representing confidence interval. As we said, 
-apparent departure from a horizontal line indicates violation for assumption. 
-All of these 6 variables have a zero slope, meaning the assumption
-is supported. We are likely to accept results provided by graphical 
-dignostics and here is explanation [see @Klein_2006]:
+In the figures above, the solid line is a smoothing spline
+fit to the plot, with the dashed lines representing confidence
+interval. As we said, apparent departure from a horizontal 
+line indicates violation for assumption. All of these 6 
+variables have a zero slope, meaning the assumption is 
+supported. We are likely to accept results provided by 
+graphical dignostics and here is explanation [see @Klein_2006]:
 
 > "We prefer graphical checks to formal goodness-of-fit test because 
 we believe that the proportional hazards assumption only approximates
 the correct model for a covariate and any formal test, based on
 a large enough sample, will reject the null hypothesis of proportionality."
 
-
-### Adjusted Survival Plot
-
-Having fit a Cox proportional hazards model to the data and check the assumption,
-it is often of interest to examine the estimated distribution of survival times. 
-The `survfit()` function estimates $S(t)$, by default at the mean values of the covariates.
-
-We could assess the impact of impact of `RHC`  on the estimated survival probability. 
-In this case, we constructed two new dataframes. In the first dataframe, we first code 
-all `RHC` as 0 to predict the survival rate for 'No RHC' group; For the second dataframe, 
-we input all `RHC` as 1 to predict the survival rate for 'RHC' group.
+Therefore, even though we see a _p_-value less than 0.05 for 
+the `ph` variable, we do not see a strong relationship with time. 
+One way this can happen is if we are testing a model with many 
+variables, the _p_-values from some variables may be less 
+than 0.05 by chance. Especially when there are lots of 
+variables, a subtle deviance will be reflected on p-value. 
 
 
-```{r}
-rhc0 <- rhc1 <- rhc_psm_df
-rhc0$RHC <- 0
-rhc1$RHC <- 1
-```
+### Cox PH estimate of survival
 
-Then we put these two new dataframe in function `survfit()` to predict 
-the estimated survival probability, and save them in one dataframe.
+Now let's assess whether or not `RHC` has an effect on 
+the overall survival, given that we have now adjusted 
+for potential confounders using a Cox PH model 
+and selected a balanced population of patients using 
+propensity score matching. 
+
+If you recall, the univariate Cox PH model that we fit
+showed a strong effect of `RHC` on survival: 
 
 ```{r}
+fit_rhc <- coxph(Surv(time, death) ~ RHC, 
+              data = rhc_psm_df)
 
-time0 <- survfit(fit1, newdata = rhc0)$surv
-time1 <- survfit(fit1, newdata = rhc1)$surv
-
-dim(time0)
-
-dat.time <- data.frame(t0 = rowMeans(time0),
-                       t1 = rowMeans(time1))
+res <- tidy(fit_rhc, conf.int = TRUE,
+                conf.level = 0.95)
+res
 ```
 
-`time0` is the survival time of 'No RHC' group while `time1` is the survival time of 
-'RHC' group for `r dim(time0)[2]` observations in `r dim(time0)[1]` days. To plot 
-the mothly survival trend as a whole, we take mean of `r dim(time0)[2]` observations 
-for two groups, and plot it with function `geom_step()`.
 
+
+**Sheena** using the survminer pacakge, add a survival plot 
+with the curves split by `RHC`
+
+
+If we compare that to the survival plot after adjusting for 
+other covariates, we see that: 
+
+**Sheena** using the survminer package, add a survival plot 
+with the curves split by `RHC` after adjusting for covariates 
+using cox PH model 
 
 ```{r}
-p_cox <- ggplot(dat.time) +
-  geom_step(aes(x =1:length(dat.time$t1),
-                y = t1, col = "blue")) +
-  geom_step(aes(x =1:length(dat.time$t0),
-                y = t0, col = "red")) +
-  theme_minimal() + labs(colour="RHC", x = "survival time", 
-                         y = "survival probability",  
-                         title = 'Survival Plot after adjustment') +
-  scale_color_manual(labels = c("RHC", "No RHC"), 
-                     values = c("blue", "red"))
+fit_all <- coxph(Surv(time, death) ~ . - 
+                   time - death -
+                   distance - weights, 
+                 data = rhc_psm_df)
 
-
-ggarrange(p_km, p_cox, ncol=2)
-
+res <- tidy(fit_all, conf.int = TRUE,
+                conf.level = 0.95)
+res
 ```
 
-Function `theme_minimal()` gives us a minimalistic theme with no background annotations. 
-
-The final plot indicates the difference of survival rate between these two groups
-tenuates; But patients in RHC group still have lower survival rate than No RHC group
-even though we adjusted the covariates so it is still harmful.
 
 
 
