@@ -412,17 +412,27 @@ will always be equal to or greater than the observed survival time.
 
 In consideration of right censoring, 
 [Kaplan-Meier estimator](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3059453/) 
-can be a good choice to estimate the survival rate. In 
-general, the survival probability is calculated as one 
-minus the probablity of death. At each time interval, the 
-probability of death equals the number of patients who
-died divided by the number of patients at risk of dying. 
+can be a good choice to estimate the survival rate. 
+In general, the survival probability is calculated as 
+one minus the probablity of death. At each time interval, 
+the probability of death equals the number of patients
+who died($d_i$) divided by the number of patients 
+at risk of dying($n_i$). 
 Here, the Kaplan-Meier estimator treats those who have 
 died, as well as those who withdraws from a study, is 
 lost to follow-up, or is alive without event occurrence 
 at last follow-up (right-censored), not be 
 counted in the denominator. Otherwise it is likely to 
 underestimate the probability of death. 
+
+The estimated survival function is written as:
+
+$$\widehat{S(t)}\ =\prod_{i:\ t_i\leq t}(1-\frac{d_i}{n_i}) $$
+
+$t_i$ is the time when at least one event happened. And 
+this estimator, $\widehat{S(t)}$, also represents the 
+probability that life is longer than $t$.
+
 
 The Kaplan-Meier estimator is a non-parametric method 
 used to estimate the probability of survival. You can 
@@ -468,9 +478,11 @@ str(rhc_df$death)
 
 We see it is a vector of character strings. So to 
 create a `Surv` object, we need to convert the datatype of
-the column to a numeric. To do this we will use the `as.factor()` 
-and `as.numeric()` functions to transform the factor as 
-numerical variable. While we here, we will also change the data 
+the column to a numeric. To do this we will use the 
+`mutate()` function in 
+[`dplyr` package](https://www.rdocumentation.org/packages/dplyr/versions/0.7.8)
+to transform the factor as numerical variable. 
+While we here, we will also change the data 
 type of `RHC` to be encoded as a 0 for "No RHC" and a 1 for 
 "RHC" 
 
@@ -533,16 +545,14 @@ and we are only considering the `RHC` variable. In the sections below,
 we will discuss how to adjust for other covariates. 
 
 ```{r}
-p_km <- autoplot(fit, conf.int = FALSE) +
-  labs(title = 'Kaplan-Meier Plot', 
-       y = 'survival probability',
-       x = 'survival time',
-       color = 'RHC', fill = 'RHC') +
-  theme_bw() +
-  scale_color_manual(labels = c("No RHC", "RHC"), 
-                     values = c("red", "blue")) + 
-  theme(legend.position="top")
-  
+p_km <- ggsurvplot(fit, ylim = c(0.6, 1),
+      legend.title = "RHC",
+      legend.labs = c("0", "1"),
+       ylab = 'survival probability', 
+       xlab = 'survival time', 
+       title = 'Kaplan-Meier Plot',
+       ggtheme = theme_minimal())
+
 
 p_km
 ```
@@ -553,7 +563,7 @@ tick-marks indicate individual patients whose survival
 times have been right-censored. It looks like a
 step function since the probability changes each 
 day (the event data are recorded daily). When no 
-truncation or censoring occurs, the Kaplan???Meier curve 
+truncation or censoring occurs, the Kaplan-Meier curve 
 is the complement of the empirical distribution function.
 
 Some of the description of the plot: at the beginning, 
@@ -971,19 +981,46 @@ propensity scores.
 
 #### Univariate Cox PH model
 
-**Sheena** add text and code for univariate Cox PH models
+To apply univariate Cox PH models, we would just 
+include one variable in the Cox PH model. 
+We may choose `RHC`, `age` and `weight` as 
+examples, and show fit results.
 
-e.g. 
+e.g. Univariate Cox PH model for `RHC`
 
 ```{r}
-fit_rhc <- coxph(Surv(time, death) ~ RHC, 
+fit_uni1 <- coxph(Surv(time, death) ~ RHC, 
               data = rhc_psm_df)
 
-res <- tidy(fit_rhc, conf.int = TRUE,
+res <- tidy(fit_uni1, conf.int = TRUE,
                 conf.level = 0.95)
 res
 ```
 
+e.g. Univariate Cox PH model for `age`
+
+```{r}
+fit_uni2 <- coxph(Surv(time, death) ~ age, 
+              data = rhc_psm_df)
+
+res <- tidy(fit_uni2, conf.int = TRUE,
+                conf.level = 0.95)
+res
+```
+
+e.g. Univariate Cox PH model for `weight`
+
+```{r}
+fit_uni3 <- coxph(Surv(time, death) ~ weight, 
+              data = rhc_psm_df)
+
+res <- tidy(fit_uni3, conf.int = TRUE, 
+                conf.level = 0.95)
+res
+```
+
+Compare the three results we find `RHC` has the strongest 
+influence while `weight` has the weakest influence.
 
 
 #### Multivariate Cox PH model
@@ -1009,7 +1046,7 @@ or `death` as these covariates are used in the `sur_obj`
 object to note right censored observations. 
 
 ```{r}
-fit1 <- coxph(Surv(time, death) ~ . - time - death -
+fit_all <- coxph(Surv(time, death) ~ . - time - death -
               distance - weights, 
               data = rhc_psm_df)
 ```
@@ -1023,9 +1060,10 @@ you are encouraged to research more if you are
 interested in it!
 
 ```{r}
-res <- tidy(fit1, conf.int = TRUE,
+res <- tidy(fit_all, conf.int = TRUE,
                 conf.level = 0.95)
 head(res)
+
 ```
 Recall, the coefficients here (`estimates`) are the 
 $\beta_j$ coefficients. We can convert this to hazard ratios 
@@ -1038,8 +1076,9 @@ Note, we can also ask to report the coefficients
 (`estimate`) and confidence intervals on an 
 exponential scale with the `exponentiate = TRUE`
 argument. 
+
 ```{r}
-res_exp <- tidy(fit1, exponentiate = TRUE, 
+res_exp <- tidy(fit_all, exponentiate = TRUE, 
             conf.int = TRUE, conf.level = 0.95)
 head(res_exp)
 tail(res_exp)
@@ -1087,7 +1126,19 @@ indicating a violation of the proportional hazards assumption.
 
 Now let's look at it in our data: 
 
-**Sheena**: Add the code for the complementary log log plot here
+```{r}
+sur_obj2 <- Surv(rhc_psm_df$time, rhc_psm_df$death)
+
+
+ggsurvplot(survfit(sur_obj2 ~ RHC, data = rhc_psm_df ),
+           ylim = c(-2, -0.5), 
+           xlim = c(0, 3),
+           fun = "cloglog")
+
+
+```
+
+Our dataset doesn't violate the assumption.
 
 
 #### Statistical assessments 
@@ -1101,7 +1152,7 @@ Then, the function will test for independence for each
 variable. It also performs a global test for all the 
 interactions tested together in the model. If the _p_-value 
 is less than 0.05, this suggests a violation of the PH
-assumption. 
+assumption. [see @Grambsch_1994]
 
 For instance, if our model is 
 $log~h(t|X_1)= \beta_0 + \beta_1 X_1$ (where 
@@ -1120,19 +1171,22 @@ a _p_-value less than a specified Type 1 error (e.g. $\alpha$
 time-varying.
 
 To illustrate the test, we use our data set as an example,
-we use the `fit1` Cox PH model from above. The `transform`
+we use the `fit_all` Cox PH model from above. The `transform`
 argument describes how the survival times should be
 transformed before the test is performed. For example, we 
 use `transform = log` to get $X*log~t$ in our model. 
 
 ```{r}
-check.ph <- cox.zph(fit1, transform = 'log')
+check.ph <- cox.zph(fit_all, transform = 'log')
 check.ph 
+
 ```
 
 The first column (`rho`) gives the Pearson product-moment 
-correlation between the scaled Schoenfeld residuals 
-and `log(time)` for each covariate. The last row contains
+correlation between the scaled [Schoenfeld residuals](https://www.mbaskool.com/business-concepts/statistics/8766-schoenfeld-residuals-test.html) 
+and `log(time)` for each covariate, which is the difference 
+between the covariate for that subject and the weighted average 
+of covariates in the risk set. The last row contains
 the global test for all the interactions tested at once. 
 
 We notice the _p_-value for `ph` is less than 0.05, 
@@ -1145,7 +1199,8 @@ the Schoenfeld residuals. Here we pick out 6 variables (`age`,
 `sex`,  `education`, `diseaseComa`, `diseaseCOPD` and `ph`)
 including the `ph` variable and graphically assessess 
 whether or not there is a relationship with time. 
-We will use the function `ggcoxzph` in package `survminer`, 
+We will use the function `ggcoxzph` in package 
+[`survminer`](https://cran.r-project.org/web/packages/survminer/index.html), 
 which will generate plots of residuals for individual 
 predictors and a non-zero slope is an evidence against
 the Cox PH assumption. 
@@ -1155,15 +1210,17 @@ the Cox PH assumption.
 plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,5,17,18,30)]
 #plot them in one chunk
 grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
-
 ```
 
 The `grid.arrange()` function in package `gridExtra` can be  
 used to arrange several plots in one chunk. The `ggcoxzph` 
 function returns an object which is a list of ggplot objects, 
-rather than a plot grob. To convert them, we use `ggplotGrob()` 
-function in package `ggplot2` to generate a ggplot2 plot 
-grob that can be understood with function `grid.arrange()`.
+rather than a plot `grob`, more specifically, gtables. 
+`gtables` are matrix-like layouts placed in cells that can
+be directly used as an input in `grid` system and related packages.
+So to convert them, we use `ggplotGrob()` function in package 
+`ggplot2` to generate ggplot2 plot grobs that are compatible
+with function `grid.arrange()`.
 
 In the figures above, the solid line is a smoothing spline
 fit to the plot, with the dashed lines representing confidence
@@ -1198,26 +1255,17 @@ If you recall, the univariate Cox PH model that we fit
 showed a strong effect of `RHC` on survival: 
 
 ```{r}
-fit_rhc <- coxph(Surv(time, death) ~ RHC, 
+fit_uni1 <- coxph(Surv(time, death) ~ RHC, 
               data = rhc_psm_df)
 
-res <- tidy(fit_rhc, conf.int = TRUE,
-                conf.level = 0.95)
-res
+res_uni1 <- tidy(fit_uni1, exponentiate = TRUE,
+            conf.int = TRUE, conf.level = 0.95)
+res_uni1
 ```
 
-
-
-**Sheena** using the survminer pacakge, add a survival plot 
-with the curves split by `RHC`
-
-
-If we compare that to the survival plot after adjusting for 
-other covariates, we see that: 
-
-**Sheena** using the survminer package, add a survival plot 
-with the curves split by `RHC` after adjusting for covariates 
-using cox PH model 
+For multivariate case, the result is shown below.
+We are only interested in 'RHC' so we extract its
+result:
 
 ```{r}
 fit_all <- coxph(Surv(time, death) ~ . - 
@@ -1225,13 +1273,83 @@ fit_all <- coxph(Surv(time, death) ~ . -
                    distance - weights, 
                  data = rhc_psm_df)
 
-res <- tidy(fit_all, conf.int = TRUE,
-                conf.level = 0.95)
-res
+res_all <- tidy(fit_all,exponentiate = TRUE,
+            conf.int = TRUE, conf.level = 0.95)
+
+res_all[31, ]
+# row contains result for RHC
 ```
 
+Then we would like to summarise them in a table:
+```{r}
+df_res <- data.frame( c1 = c("RHC", "RHC"),
+                     c2 = c("Univariate Cox PH", "Multivariate Cox PH"),
+                     c3 = c(res_uni1$estimate, res_all[31,]$estimate),
+                     c4 = c(res_uni1$p.value, res_all[31,]$p.value),
+                     c5 = c("None","Variables in `rhc_psm_df`")) 
+colnames(df_res) <- c("Prognostic variable","Method ", "HR",
+                      "p-value", "Adjusted for")
+
+df_res %>%
+  kable(caption = "Prognostic result for RHC") %>%
+  kable_styling()
+```
+
+The results for these two model don't vary too much.
+
+Also, we can add survival plots with the curves split 
+by `RHC` with the help of `ggadjustedcurves()` function in 
+`survminer` package. 
+
+If we compare that to the survival plot after adjusting for 
+other covariates, we see that: 
+
+```{r,fig.width=12, fig.height=6}
+# Univariate case
+p_uni1 <- ggadjustedcurves(fit_uni1, data = rhc_psm_df,
+      variable = "RHC",
+      ylim = c(0.6, 1), legend = "top",
+      legend.title = "RHC",
+       ylab = 'survival probability', 
+       xlab = 'survival time', 
+       title = 'Cox PH Plot-univariate',
+       ggtheme = theme_minimal())
+
+# Multivariate case
+p_all <- ggadjustedcurves(fit_all, data = rhc_psm_df,
+      variable = "RHC",
+      ylim = c(0.6, 1), legend = "top",
+      legend.title = "RHC",
+      ylab = 'survival probability', 
+      xlab = 'survival time', 
+      title = 'Cox PH Plot-multivariate',
+      ggtheme = theme_minimal())
+
+grid.arrange(p_uni1, p_all, p_km$plot, ncol = 3)
+```
+
+Why we put `p_km$plot` in `grid.arrange()` function?
+Similiar to the questions we met before, `p_km` is a list
+created by funciton`ggsurvplot()` and it is not compatible with
+`grid.arrange()`. Officially, a function 
+called `arrange_ggsurvplots()` is used to arrange 
+multiple ggsurvplots on the same page. 
+
+But the other two plots are created by `ggadjustedcurves()` 
+that are compatible with `grid.arrange()`. 
+There is an easy way to solve it: extract `plot` object from
+list `p_km`.
 
 
+The left and middle plots show survival curves for matched dataset,
+corresponding to univariate or multivariate model respectively.
+In multivariate case, the difference of survival rate seems to
+be smaller than that in univariate case, but it is subtle.
+
+Compared with the right Kaplan-Meier plot, whether we use 
+univariate or multivariate model, the difference of survival rate 
+between these two groups tenuates; But patients in RHC group still
+have lower survival rate than No RHC group so it is still harmful.
 
 
 # Summary
