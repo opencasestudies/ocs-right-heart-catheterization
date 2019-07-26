@@ -534,10 +534,15 @@ The total number of the patients not having RHC is
 `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them 
 died in 30 days (or a proportion of `r round(1-(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)),2)`).
 
-To show the survival curve, the `autoplot()` function 
-from the `ggplot2` package can be used to create a Kaplan-Meier curve
-for `survfit` objects. We can also use this to show the survival rate 
-stratified by whether or not a patient was managed with `RHC`. 
+To show the survival curve, the function
+[`ggsurvplot()`](https://www.rdocumentation.org/packages/survminer/versions/0.4.4/topics/ggsurvplot)
+from the package [`survminer`](https://cran.r-project.org/web/packages/survminer/index.html)
+can be used to create a Kaplan-Meier curve for `survfit` objects. 
+`ggurvplot()` returns an object of class ggsurvplot which is 
+list containing survival plot, the data used to plot plots, etc.
+We can also use this to show the survival rate stratified by 
+whether or not a patient was managed with `RHC`.
+
 
 **Note**: Here we are not adjusting for any other covariates, 
 and we are only considering the `RHC` variable. In the sections below, 
@@ -567,8 +572,8 @@ is the complement of the empirical distribution function.
 Some of the description of the plot: at the beginning, 
 all the patients are alive. The survival probability at 
 the end of 30 days of a patient having a right catheterization 
-is `r round(fit$n.censor[58]/sum(rhc_df$RHC == 1, na.rm = TRUE))` 
-and `r round(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE))` 
+is `r round(p_km$data.survplot$surv[29],digits= 2)` 
+and `r round(p_km$data.survplot$surv[58],digits= 2)` 
 for patients not having the right catheterization. 
 
 We see from the Kaplan-Meier plot and that
@@ -1108,7 +1113,7 @@ a cartoon of what it looks like if the assumption is
 not violated:
   
 <center>
-![](doc/check-support.jpeg)
+![](doc/check-support.png)
 </center>
 
 And here is a cartoon of what it would look like if the 
@@ -1121,7 +1126,11 @@ assumption was violated:
 Here we see that the survival curves cross, clearly 
 indicating a violation of the proportional hazards assumption. 
 
-Now let's look at it in our data: 
+Now let's look at it in our data, we still use
+`ggsurvplot()` to plot it. `fun` optionn is an
+arbitrary function defining a transformation of 
+the survival curve, we use `log(-log(x))` to 
+get the complementary log-log plot: 
 
 ```{r}
 sur_obj2 <- Surv(rhc_psm_df$time, rhc_psm_df$death)
@@ -1191,8 +1200,7 @@ the Schoenfeld residuals. Here we pick out 6 variables (`age`,
 `sex`,  `education`, `diseaseComa`, `diseaseCOPD` and `ph`)
 including the `ph` variable and graphically assessess 
 whether or not there is a relationship with time. 
-We will use the function `ggcoxzph` in package 
-[`survminer`](https://cran.r-project.org/web/packages/survminer/index.html), 
+We will use the function `ggcoxzph` in package `survminer`, 
 which will generate plots of residuals for individual 
 predictors and a non-zero slope is an evidence against
 the Cox PH assumption. 
@@ -1268,17 +1276,17 @@ fit_all <- coxph(Surv(time, death) ~ . -
 res_all <- tidy(fit_all,exponentiate = TRUE,
             conf.int = TRUE, conf.level = 0.95)
 
-res_all[31, ]
-# row contains result for RHC
+res_all[31, ] # row contains result for RHC
 ```
 
 Then we would like to summarise them in a table:
 ```{r}
-df_res <- data.frame(c1 = c("RHC", "RHC"),
-                     c2 = c("univariate Cox PH", "multivariate Cox PH"),
-                     c3 = c(res_uni1$estimate, res_all[31,]$estimate),
-                     c4 = c(res_uni1$p.value, res_all[31,]$p.value),
-                     c5 = c("None","Variables in `rhc_psm_df`")) 
+df_res <- 
+  data.frame(c1 = c("RHC", "RHC"),
+        c2 = c("univariate Cox PH", "multivariate Cox PH"),
+        c3 = c(res_uni1$estimate, res_all[31,]$estimate),
+        c4 = c(res_uni1$p.value, res_all[31,]$p.value),
+        c5 = c("None","Variables in `rhc_psm_df`")) 
 colnames(df_res) <- c("Prognostic variable","Method ", "HR",
                       "p-value", "Adjusted for")
 
@@ -1375,14 +1383,18 @@ and finally kept `r 0.5*dim(rhc_psm_df)[1]` pairs. As expected, the outcomes was
 considering a much more balanced distribution of propensity score in two groups.
 
 In the next step, we further improved our survival analysis model
-by using a parametric method: Cox proportional hazards model.
-All necessary variables were included, avoiding that we may ignore potential risks. 
-We also evaluated the proportionality assumption with graphical checks. There is no
-obvious pattern with time so the assumption is supported with our data set. 
+by using a parametric method: Cox proportional hazards model. First
+we applied univariate model and showed three examples. Then all necessary
+variables were included, avoiding that we may ignore potential risks. 
+We also evaluated the proportionality assumption both with graphical
+checks and statistical test. There is no obvious pattern with time
+so the assumption is supported with our data set. 
 
-Furthermore, we adjusted outcomes and found the difference of survival between two groups tenuates, 
-proving the necessity of what we did; However, survival rate for patients with RHC treatment 
-are still lower than  patients without RHC treatment so we concluded this treatment is harmful.
+Furthermore, we adjusted outcomes. Whether with univariate or 
+multivariate model, the difference of survival between two groups tenuates, 
+proving the necessity of what we did (data matching); However, 
+survival rate for patients with RHC treatment are still lower than
+patients without RHC treatment so we concluded this treatment is harmful.
 
 
 There exists much more space for further improvement such as variable selection 
