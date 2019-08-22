@@ -56,14 +56,14 @@ observational study.
 
 The motivation of this case study is to investigate 
 whether or not there is an impact on a patient's overall 
-survival (or mortality) due to the use of a patient being 
-treated with a RHC in an observational dataset. 
+survival (or mortality) due to  
+treatment with a RHC, using an observational dataset. 
 
 Our main predictor of interest is RHC, but we also want 
-to adjust for all other potential confounders in the dataset 
+to adjust for other potential confounders in the dataset 
 as this is an observational study. Here, we want to know 
 whether RHC actually improves the patient's overall survival 
-within 30 days of being given a RHC, but adjusted by other
+within 30 days of being given a RHC, after adjusting for other
 baseline variables, including age, race, blood pressure, etc.
 
 In addition to loading the set of R packages from the
@@ -74,17 +74,17 @@ for this this particular case study:
 
 |R package|Purpose|
 |---|--------------------------------------------------------------------------------------------------------------|
-|`tableone`|Creates a table ('Table 1' below) to describe baseline characteristics of the population|
+|`tableone`|Creates a table ('Table 1' below) to describe baseline characteristics of the sample|
 |`kableExtra`|Helps with building complex tables and manipulating table styles; creates awesome HTML tables|
 |`broom`|Takes the messy output of built-in functions in R such as `lm` or `t.test`, and turns it into tidy data frames|
 |`ggpubr`|Provides some easy-to-use functions for creating and customizing `ggplot2`- based publication ready plots|
-|`ggfortify`|Data visualization tools for statistical analysis result|
+|`ggfortify`|Includes data visualization tools for statistical analysis results|
 |`gridExtra`|Provides a number of user-level functions to work with "grid" graphics|
-|`ggplot2`|Create elegant data visualisations using the grammar of graphics|
+|`ggplot2`|Provides tools to create elegant data visualisations using the grammar of graphics|
 |`survival`|Contains the core survival analysis routines, including definition of `Surv` objects, Kaplan-Meier and Cox models etc.|
-|`survminer`|Drawing Survival Curves using 'ggplot2'|
+|`survminer`|Contains functions for drawing Survival Curves using 'ggplot2'|
 |`knitr`|Provides a general-purpose tool for dynamic report generation in R|
-|`MatchIt`|Nonparametric preprocessing for parametric causal inference|
+|`MatchIt`|Includes functions for nonparametric preprocessing for parametric causal inference|
 
 In order to run this code please ensure you have these packages installed. 
 
@@ -113,23 +113,23 @@ The learning objectives for this case study include:
 
 # What is the data?
 
-The data are available to download as a `.csv` at this
+The data are available to download as a `.csv` file at this
 [link](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.csv). 
 The dataset includes a set of patients who were hospitialized
-and either did or did not received an RHC (also called the 
+and either did or did not receive an RHC (also called a 
 Swan-Ganz catheter) on day 1 of hospitalization. This
-treatment variable in the dataset is called `swang1`. 
-The description of all variables can be found in
+treatment variable is called `swang1` in the dataset. 
+The description of all variables can be found in the
 [codebook](http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/rhc.html).
 
 
 # Data Import
 
-As the data are avaiable online, we will import data 
-from the web directly with `read_csv()` function from the 
+As the data are avaiable online, we will import them 
+from the web directly with the `read_csv()` function from the 
 [`readr` package](https://cran.r-project.org/web/packages/readr/readr.pdf) 
 as part of the `tidyverse`. This dataset was 
-originally used in in this paper [@Connors_1996],
+originally used in in the paper [@Connors_1996],
 and has been made publicly available.
 
 ```{r}
@@ -219,24 +219,24 @@ in is given below.
 
 Our main interest is to investigate the influence of 
 RHC on survival. but first let's use exploratory data 
-analysis (EDA) to explore the relationship of RHC 
-with other variables in our dataset. 
+analysis (EDA) to explore the relationship between RHC 
+and the other variables in our dataset. 
 
-First, we can stratify the `RHC` column in the `rhc_df` 
-dataset into two groups: the ones with and without the 
+First, we can stratify the samples in our data set into two groups according to the `RHC` column of the `rhc_df` 
+dataset : the samples who either did or did not receive the 
 RHC procedure. Then, we can summarize the potential
-confounders within each subgroup to identify if 
-there are differences between them. The demographics 
+confounders within each group to determine if 
+there are differences in these potential confounders between the two groups. These demographic summaries 
 can help us understand the one to one relation between 
 right heart catheterization and other variables.
 
 
-We will use function `CreateTableOne()` in 
+We will use the function `CreateTableOne()` in the
 [`tableone` package](https://www.rdocumentation.org/packages/tableone/versions/0.10.0)
 to summarize both continuous and categorical variables 
 with respect to the `RHC` column in our dataset. Then,
 we can use statistical tests (specifically Chi-square 
-and _t_-tests) to investigate relationship between 
+and _t_-tests) to investigate the relationship between 
 `RHC` and either continuous or categorical variables. 
 
 ```{r echo=T, results='hide'}
@@ -248,12 +248,11 @@ tblprint[c(3, 4, 9, 14, 21, 31, 42, 44),4] <- 'Chi-sq'
 tblprint[c(2, 8, 35, 36, 37, 38, 39, 40, 41, 43),4] <- 't-test'
 ```
 
-`CreateTableOne()` function creates an object summarizing 
-all baseline variables optionally stratifying by one or more
-startifying variables and performing statistical tests. To 
-make this object be easily manipulated, such as changing 
-value and being understood by `kable()` function, we use
-function `print()` to change its type as dataframe.
+The `CreateTableOne()` function creates an object summarizing 
+all baseline variables, optionally stratifying by one or more variables and performing statistical tests. The p-values from the statistical test comparing the two groups is given in the `P` column. To 
+make this object easy to manipulate, e.g., to be able to change 
+values or use the `kable()` function to display the table, we use the
+function `print()` to change its type to a dataframe.
 
 ```{r}
 kable(tblprint , "html", 
@@ -263,29 +262,28 @@ kable(tblprint , "html",
 ```
 
 
-`kable()` function is a very simple table generator and enables you to 
-create awesomes tables by playing with its arguments. Here, we use `kable_styling()`
-function to modify the style of HTML output, and use `add_indent()` function
-to add indentations to row headers. All of this work are aimed to construct
+The `kable()` function is a very simple table generator and enables you to 
+create awesomes tables by playing with its arguments. Here, we use the `kable_styling()`
+function to modify the style of HTML output, and use the `add_indent()` function
+to add indentations to the row headers. All of this work is aimed to construct
 a nice table.
 
 What do you see? Take a moment to reflect on what these differences suggest. 
 The unadjusted outcomes indicate that patients managed with RHC were more likely 
-to be white male, to have private insurance, to have under $11k income,
+to be males, to have private insurance, to have under $11k income,
 to also have an acute kidney injury 
 ([ARF](https://en.wikipedia.org/wiki/Acute_kidney_injury)), 
 multisystem organ failure ([MOSF](https://en.wikipedia.org/wiki/Multiple_organ_dysfunction_syndrome))
 or chronic heart failure ([CHF](https://en.wikipedia.org/wiki/Heart_failure)).
 Patients with RHC were less likely to have cancer. 
 
-Knowing information about how the populations between 
+Knowing information about how these characteristics differ between 
 patients that were or were not managed with `RHC` is 
-important because we want to identify whether `RHC` has 
-an impact on survival and not because there are other 
+important because we want to identify the impact of `RHC` on survival, independent of other 
 differences (e.g. whether they have cancer or not) 
 in the two populations of patients. We will 
 learn in a little bit more about how to overcome these
-differences in the population. 
+differences between the two groups below. 
 
 ## Data visualization
 
@@ -362,7 +360,7 @@ ggarrange(p4, p5,p6, ncol=3, nrow=1)
 
 The `age` difference between the RHC and No RHC 
 groups seem to be negligible, while blood pressure 
-(`bp`) and PaO2/FIO2 ratio (`pf`) differ largely. 
+(`bp`) and PaO2/FIO2 ratio (`pf`) have larger differences. 
 We see that patients who receive RHC tend to have 
 lower blood pressure (`bp`) than patients who do not. 
 Similarly, patients who receive RHC tend to have 
@@ -378,7 +376,7 @@ we will use a branch of statistics called
 [survival analysis](https://en.wikipedia.org/wiki/Survival_analysis).
 These methods can be used to analyze the expected duration of 
 time until one or more events happen, such as death in 
-biological organisms and failure in mechanical systems. 
+biological organisms or failure in mechanical systems. 
 
 ## Survival analysis
 
@@ -386,32 +384,32 @@ biological organisms and failure in mechanical systems.
 
 Before we talk about survival analysis, we need to talk about a 
 type of time to event data in which the value of a measurement 
-or observation is only partially known. This is known as 
+or observation is only partially known. This phenomenon is known as 
 [censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)). 
 There are various kinds of censoring, but here we will focus 
 only on left- and right-censoring. Right censoring is one of the 
-most common type of censoring in survival analysis [see @Klein_2006].
+most common types of censoring in survival analysis, see [@Klein_2006].
 
 <center>
 ![](doc/censor.jpeg)
 </center>
 
-Suppose there are three patients, A, B and C enroll in the study 
-at time $t_0$ and the length of this study is $T$. Assume patient
+Suppose there are three patients, A, B and C who enroll in the study 
+at time $t_0$, and the length of this study is $T$. Assume patient
 A died at time $t_1$. In this case, we know his exact survival 
 time and this patient is not censored. Next, assume 
-patient B quitted the study at time $t_2$, before the end of the 
+patient B quit the study at time $t_2$, before the end of the 
 study ($T$). And patient C was alive at the end of the study ($T$). 
 In these cases, we treat patient B and patient C as _right censored_ 
 because we know the patients were alive at time $t_2$ and $T$ respectively,
-but are unknown when death happened afterwards. Therefore, right 
-censoring can play an important role here: the real survival times 
-will always be equal to or greater than the observed survival time.
+but do not know when death happened afterwards. Right 
+censoring plays an important role here in determining survival time: the real survival time 
+will always be equal to or greater than the observed survival time for right censored data.
 
 
 ### Kaplan-Meier 
 
-In consideration of right censoring, 
+In consideration of right censoring, the
 [Kaplan-Meier estimator](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3059453/) 
 can be a good choice to estimate the survival rate. 
 It is a non-parametric method used to estimate the 
@@ -421,12 +419,11 @@ one minus the probablity of death. At each time interval,
 the probability of death equals the number of patients
 who died ($d_i$) divided by the number of patients 
 at risk of dying ($n_i$). 
-Here, the Kaplan-Meier estimator treats those who have 
-died, as well as those who withdraws from a study, is 
-lost to follow-up, or is alive without event occurrence 
-at last follow-up (right-censored), not be 
-counted in the denominator. Otherwise it is likely to 
-underestimate the probability of death. 
+Here, the Kaplan-Meier estimator excludes the following people from the denominator: those who have 
+died, those who withdrew from the study, those who are
+lost to follow-up, or those who are alive without event occurrence 
+at last follow-up (right-censored). Otherwise it is likely that the probability of death will be underestimated. 
+[SHEENA: I think we need to clarify that the excusion is based on status at the time in question, right?]
 
 
 The estimated survival function is written as:
@@ -461,7 +458,7 @@ For the `event` argument, we can use the `death`
 variable, which is the response varable in our survival
 analysis. 
 
-**Not**: In the help file, for the `event` argument, 
+**Note**: In the help file, for the `event` argument, 
 it states that 
 
 > "The status indicator, normally 0=alive, 
@@ -478,11 +475,11 @@ str(rhc_df$death)
 We see it is a vector of character strings. So to 
 create a `Surv` object, we need to convert the datatype of
 the column to a numeric. To do this we will use the 
-`mutate()` function in 
+`mutate()` function in the 
 [`dplyr` package](https://www.rdocumentation.org/packages/dplyr/versions/0.7.8)
-to transform the factor as numerical variable. 
-While we here, we will also change the data 
-type of `RHC` to be encoded as a 0 for "No RHC" and a 1 for 
+to transform the factor to a numeric variable. 
+While we are here, we will also change the data 
+type of `RHC` to be encoded as 0 for "No RHC" and 1 for 
 "RHC" 
 
 ```{r}
@@ -505,8 +502,8 @@ sur_obj <- Surv(rhc_df$time, rhc_df$death)
 sur_obj[1:10]
 ```
 
-Do you see `+` behind survival times? This is an example of what 
-we discussed before - right censored data points. `30+` indicates 
+Do you see `+` behind some of the survival times? This is an example of what 
+we discussed before: right censored data points. `30+` indicates 
 this patient survived until the end of the study while the `2`
 means this patient died at the second day after study began. 
 
@@ -514,7 +511,7 @@ Also, the `sur_obj` object can be interpreted by the
 `survfit()` function from the `survival` package 
 (see below) which is used to compute an estimate of a 
 survival curve for censored data.
-In addition to `sur_obj` object that we created, the
+In addition to the `sur_obj` object that we created, the
 `survfit()` function also includes as input the response 
 variable of interest in a simple case of right-censored data. 
 Here that is the `RHC` variable. 
@@ -523,6 +520,8 @@ Here that is the `RHC` variable.
 fit <- survfit(sur_obj ~ RHC, data = rhc_df)
 fit
 ```
+
+SHEENA: I am getting a bunch of NAs in the output of survfit. Is that correct?
 
 The total number of the patients managed by RHC is 
 `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and 
@@ -539,7 +538,7 @@ To show the survival curve, the function
 from the package [`survminer`](https://cran.r-project.org/web/packages/survminer/index.html)
 can be used to create a Kaplan-Meier curve for `survfit` objects. 
 `ggurvplot()` returns an object of class ggsurvplot which is 
-list containing survival plot, the data used to plot plots, etc.
+list containing the survival plot, the data used to create the plot, etc.
 We can also use this to show the survival rate stratified by 
 whether or not a patient was managed with `RHC`.
 
@@ -569,69 +568,69 @@ day (the event data are recorded daily). When no
 truncation or censoring occurs, the Kaplan-Meier curve 
 is the complement of the empirical distribution function.
 
-Some of the description of the plot: at the beginning, 
+Some further description of the plot: at the beginning, 
 all the patients are alive. The survival probability at 
 the end of 30 days of a patient having a right catheterization 
-is `r round(p_km$data.survplot$surv[29],digits= 2)` 
-and `r round(p_km$data.survplot$surv[58],digits= 2)` 
+is `r round(p_km$data.survplot$surv[58],digits= 2)` 
+compared to `r round(p_km$data.survplot$surv[29],digits= 2)` 
 for patients not having the right catheterization. 
 
-We see from the Kaplan-Meier plot and that
+We see from the Kaplan-Meier plot that
 patients with RHC treatment have a lower survival rate. 
 But, think back to the 'Data visualization' section. 
 We also saw a difference in the distribution for covariates 
 such as blood pressure. This suggests that patients who are or are not 
-managed by RHC might be different populations of patients driven 
-by other covariates. Therefore, the difference in observed 
+managed by RHC might be different from one another due to other covariates as well. Therefore, the difference in observed 
 survival rates might be driven by differences in 
 the other covariates. Our goal is to determine whether RHC 
 has an impact on survival, but we want to make a fair 
 comparison between the patients managed with and without RHC. 
 Therefore, we are curious if there is still a difference in 
-survival after adjusting for potential confounders with the 
-other variables. To do this, we will introduce propensity scores and 
-propensity score matching in the next few sections as a way to do this. 
+survival after adjusting for potential confounders. We will introduce propensity scores and 
+propensity score matching in the next few sections as a way to do this adjustment. 
 
 
 ## Propensity score matching
 
 As we mentioned above, it is a popular belief that
 it is beneficial for patients to be managed by RHC [see @Connors_1996]. 
-Therefore, a RCT is not possible. The Connors et al. paper
+Therefore, a RCT is not possible. However, one of the main benefits of an RCT is that randomization helps us to isolate the effect we are interested in measuring, by making sure the two comparison groups are otherwise similar on all other relevant variables. In an observational data set, this is rarely the case, especially when variables are used to assign treatment that may also have an impact on patient survival. The Connors et al. paper
 explains this phenomenon like this: 
 
-> "In observational studies, the treatment selection has connection 
-with patients characteristics but also has a link with the outcomes. 
+> In observational studies, the treatment selection has connection 
+with patient characteristics but also has a link with the outcomes. 
 For example, patients with lower blood pressure are more likely to get RHC, 
 and they are also more likely to die. The effect of such treatment selection bias 
 has been called "confounding by indication". 
 
-In the next section, we will introduce propensity scores 
+This means that if we were to directly compare the mortality of patients who did or did not receive RHC, we would not only be observing the effect of RHC, but also the effect of blood pressure on mortality, since a higher proportion of the people who received RHC will also have high blood pressure. We need a way to ensure that we are isolating the effect of RHC in our analysis, by somehow making our groups comparable to one another when measuring the effect of interest. In the next section, we will introduce propensity scores 
 as a way to adjust for treatment selection bias. 
 
-### Propensity score
+### Propensity score: conceptual framework
 
-Propensity score is defined as the probability of receving treatment 
+The propensity score is defined as the probability a patient receives a treatment, 
 with consideration of the complete information about this patient. 
-Information may include `age`, `gender` and `blood pressure` etc. 
-To estimate the propensity score, these information are treated as 
-explanatory variables in a logistic regression model while the 
+The information may include variables such as `age`, `gender` and `blood pressure` etc. To use propensity scores, we need a way to estimate these probabilities, and then figure out how to use these propensity scores to isolate the effect we are interested in measuring, i.e., the effect of RHC on patient survival. 
+
+
+It turns out that we can estimate the propensity score using a tool we may have used in other contexts: logistic regression. To set up the logistic regression model, the potentially informative variables are treated as 
+explanatory variables in the model, while the 
 response variable is a binary variable indicating whether or not 
-this patient receive treatment (`RHC`).
+this patient received treatment. In our case, this is the `RHC` variable. The sections below will go into more detail about the reasoning behind using propensity scores, how we calculate them, and how we use them in our survival analysis.
 
 
-### Propensity score matching
+### Propensity score matching: conceptual framework
 
 To adjust for treatment selection bias, the variables that
 independently affect the decision to use or withhold the treatment 
-must be identified and measured. Here we will accomplish that
+must be identified, measured and somehow adjusted for. Here we will accomplish this adjustment
 with what's called 
 [propensity score matching (PSM)](https://en.wikipedia.org/wiki/Propensity_score_matching). 
 
 In a statistical analysis with observational data, PSM is 
-a matching technique that attempts to estimate the effect of a
+a technique that attempts to estimate the effect of a
 treatment, policy, or other intervention by modeling covariates
-that predict receiving, for example the treatment. PSM attempts 
+that predict receiving the treatment, and then matching patients who had similar probabilities of receiving treatment, but who had different treatment assignments. These pairs of patients are similar to each other in terms of their prior chance of receiving treatment, so when we compare their outcomes, we are controlling for those things that influenced the treatment decision. PSM attempts 
 to reduce the bias due to the confounding variables by ensuring
 that outcomes among units that received the treatment are 
 compared fairly to outcomes that did not receive the treatment. 
@@ -643,12 +642,12 @@ In general, the procedures of PSM include:
 * Run logistic regression:
     + Dependent variable: Y = 1, if with RHC; Y = 0, otherwise.
     + Choose appropriate confounders and apply multivariate logistic regression.
-    + Obtain propensity score, which is the predicted probability (p). A higher score indicates a higher probability of receiving the treatment.
+    + Obtain propensity score, which is the predicted probability (p) of receiving treatment. A higher score indicates a higher probability of receiving the treatment.
 
 * One-to-one matching on propensity score:
     + Randomly select one patient with RHC.
-    + Match this patient who has the closest propensity score in all patients without RHC. The difference should less than a certain threshold. (we will discuss the threshold later)
-    + Continue this matching until all possible pairs were identified.
+    + Match this patient who has the closest propensity score in all patients without RHC. The difference should be less than a certain threshold (to be discussed later)
+    + Continue this matching until all possible pairs are identified.
     
 Let's use a plot to explain how the matching works. 
 
@@ -656,13 +655,11 @@ Let's use a plot to explain how the matching works.
 ![](doc/psm.png)
 </center>
 
-Each dot represents a patient in the observational study along the
-corresponding line segment (a propensity to receive the treatment 
-ranging from 0 to 1). The position reflects the propensity score. 
-On the right side, the large propensity score reflects a high probability 
-of receiving the treatment and vice versa for the left side.
+Each dot represents a patient in the observational study, grouped and colored according to whether they received (bottom line, teal) or did not receive (top line, pink) RHC. The position of the point on the line reflects the propensity score from 0 (on the left) to 1 (on the right). 
+A larger propensity score reflects a higher probability 
+of receiving the treatment and vice versa for a lower score.
 In the cartoon, there are 5 patients who receive the RHC treatment (teal) 
-and 5 patients without RHC treatment (red). Using the covariates in a 
+and 5 patients without RHC treatment (pink). Using the covariates in a 
 logistic regression model, we estimate the propensity score. Then,
 we match patients based on propensity score across the two groups. 
 The closer their propensity score is,the more likely they will be 
@@ -670,30 +667,29 @@ matched as a pair.
 
 Here, there are 3 pairs in the middle: A1 and B1, A2 and B2, A3 
 and B3, as these are the closest matching pairs. However, there are 
-2 samples on the left part in No RHC group 
-and 2 samples on the right part in RHC group that do not have patients 
-to match with across the two groups (separated by dashed line). 
-This is because there isn't any sample whose propensity score are close to them. 
+2 samples on the left in the No RHC group 
+and 2 samples on the right in the RHC group (separated by dashed line) that do not matches. 
+This is because there are no samples whose propensity scores are close to theirs. 
 In this case, they fail to be matched and will be removed from downstream
 analyses. After the matching is complete, we have 3 pairs of patients that 
 are matched successfully (or 3 samples with RHC treatment and 3 samples 
 without RHC treatment).
 
-### Estimate propensity scores
+### Estimating propensity scores: the details
 
-As we mentioned above, propensity score is calculated by logistic regression
-in which the treatment assignment is the dependent variable. The
+As we mentioned above, the propensity score is calculated using logistic regression
+in which the treatment assignment is the dependent variable. Logistic regression measures the relationship between a set of predictor variables and a binary (0 or 1) outcome. Based on the estimated logistic regression model, we can predict the probability that any indvidual, with a certain set of values of the predictor variables, has an outcome value of 1. The
 `glm()` function in the 
 [`stats` package](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/00Index.html) 
-is widely used to estimate generalized linear models. 
+is widely used to estimate generalized linear models, of which logistic regression is a special case. 
 The argument `family =` provides a convenient way to specify the 
-details of the models used. Here, since the outcomes
+details of the models used. Here, since the outcome
 is binary and we would like to fit a logistic regression model, 
-we set `binomial(link = "logit")`.
+we set `family = binomial(link = "logit")`.
 
 We exclude `time` and `death` here because these two variables have no 
 relationship with treatment assignment (`RHC`) and only relate 
-to the survival analysis that we will perform later on. 
+to the survival analysis that we will perform later on. Since these two variables were measured after treatment, they were not involved in the determination of whether a patient received RHC.
 
 ```{r}
 psm_glm <- glm(RHC ~ . - time - death, 
@@ -709,10 +705,10 @@ and create a data frame that has the propensity score
 as well as the patient's actual treatment status.
 
 ```{r}
-glm_df <- data.frame(p_rhc <-  predict(psm_glm, 
-                                       type = "response"),
-                     p_norhc <-  1 - p_rhc,
-                     RHC <-  psm_glm$model$RHC)
+p_rhc = predict(psm_glm, type = "response")
+glm_df <- data.frame(p_rhc = p_rhc,
+                     p_norhc =  1 - p_rhc,
+                     RHC =  psm_glm$model$RHC)
 ```
 
 Inside the data frame, the `p_rhc` is the predicted probability of 
@@ -731,29 +727,31 @@ glm_df %>%
   ylab("density") + theme_bw()
 ```
 
-Note that, you can change the `position` adjustment to use for 
+Note that you can change the `position` adjustment to use for 
 overlapping points on the layer (default value is `position ='stack'`).
 In contrast, the `position = 'identity'` argument will place each 
 object exactly where it falls in the context of the graph. 
-Finally, to see that overlapping we need to make the bars slightly 
+Finally, since we have overlapping bars we can make the bars slightly 
 transparent by setting `alpha` to a small value. 
 
 We can clearly see the distribution of propensity scores is not 
-balanced across the two groups, that's why we will move to the 
+balanced across the two groups. This is not surprising since we know that the decision to give a patient a RHC was made based on some of the variables included in our model; the patients who received a RHC were more likely to receive one than  the patients who did not. In order to make our RHC and non-RHC groups more comparable to one another, we will move to the 
 next step: one-to-one matching.
 
 
 ### One-to-one matching on propensity score
+
+Based on the example above, you might think that it would be a lot of work to find the best set of matching samples from the treatment and control groups in our data set. However, other people have written some useful code to make this process much easier.
 
 The `matchit()` function is the main command of the package 
 [`MatchIt`](https://cran.r-project.org/web/packages/MatchIt/MatchIt.pdf), 
 which uses parametric models for causal inference to select well-matched
 subsets of the original treated and control groups.
 
-The arguments provided by the `matchit()` function are given below:
+The arguments of the `matchit()` function are given below:
 
 * `formula`: Specifies the logistic regression formula you would like to use. 
-Here, we just use `psm_glm` that we created in last section.
+Here, we just use the same logistic regression model, `psm_glm`, that we created in last section.
 
 * `data`: Data frame (or database table name) containing the variables for analysis in the formula arguments.
 
@@ -777,8 +775,8 @@ each treatment case by increasing this number; usually this number is between 1 
 
 If we dig into [see @Austin_2011], we will find that to 
 specify the value of `caliper` (or the threshold), the 
-standard deviation of the logit odds of estimated propensity 
-scores is necessary. That is what we calculated in previous 
+standard deviation of the log odds of the estimated propensity 
+scores is necessary. We calculated these propensity scores in the previous 
 section. We see that the `p_rhc` will be useful now!
 
 First let's calculate our threshold that we will use in `caliper`. 
@@ -801,7 +799,7 @@ rhc_psm_df <- match.data(psm_mod)
 colnames(rhc_psm_df)
 ```
 
-Using `match.data()` function, we can get the final 
+Using the `match.data()` function, we can get the final 
 dataset with matched patients (`rhc_psm_df`). Note that 
 the final dataset is smaller than the original: it contains 
 `r dim(rhc_psm_df)[1]` observations, meaning that 
@@ -810,7 +808,7 @@ observations were matched. It also contains a variable
 called `distance`, which is the propensity score.  
 
 Let's check out what the distribution of propensity scores 
-look like in our matched dataset: 
+looks like in our matched dataset: 
 
 ```{r}
 rhc_psm_df %>%
@@ -822,9 +820,9 @@ rhc_psm_df %>%
 
 ```
 
-Now the distribution of propensity scores are much
+Now the distributions of propensity scores in the two groups are much
 more balanced! In addition to using `ggplot2`, there 
-is another way to implement the result using the 
+is another way to present this result using the 
 [`plot()` function](https://www.rdocumentation.org/packages/MatchIt/versions/1.0-2/topics/plot.matchit)
 inside the `MatchIt` package.
 
@@ -833,37 +831,37 @@ plot(psm_mod,type = "hist" )
 ```
 
 Just putting the `psm_mod` object in `plot()` 
-can offer you a nice plot, showing the distributions
+produces a nice plot, showing the distributions
 of propensity scores before and after matching. The 
-histograms before matching on on the left,
-and the histograms after matching on the right. 
+histograms before matching are on the left,
+and the histograms after matching are on the right. 
 
 
 ## Cox Proportional Hazard Model
 
-Given balanced data, let's continue to investigate the 
-effect of `RHC` on the probability of survival 
-for the patients who were treated and not treated 
-with `RHC`. 
+Given our new balanced data set, let's continue to investigate the 
+effect of RHC on the probability of survival 
+for the patients who were or were not treated 
+with RHC. 
 
-In Kaplan-Meier plot, we created the `sur_obj` object 
+In our Kaplan-Meier plot, we created the `sur_obj` object 
 with the time that passes (`time`), and the event that 
-occurs (`death`) to plot the survival curve. This 
+occurs (`death`) in order to plot the survival curve. This 
 non-parametric method is a simple comparision which 
-can be used to get a first-step understanding based on 
-single covariates (e.g. `RHC`). More often than not,
+can be used to get a first-pass understanding based on 
+a single covariate (e.g. `RHC`). More often than not,
 we want to estimate survival probablities taking 
 into account additional characteristics that may
-influence the outcome, such as `blood pressure`, 
+influence the outcome, such as `blood pressure`, or  
 `age`. In our case, we are interested in the effect 
 of `RHC`, but we also know there are additional 
 covariates that also might effect the outcome. So, we 
-would like to adjust for this additional covariates. 
+would like to adjust for these additional covariates. 
 
 This is where we will introduce the
 [Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model)
 (Cox PH model), 
-which essentially is a regression model to investigate
+which is essentially a regression model used to investigate
 the association between the survival time of patients 
 and one or more predictor variables. While the 
 Kaplan-Meier curve is an example of a _univariate_ 
@@ -879,8 +877,8 @@ The Cox PH model is expressed using the hazard function
 $h(t)$ at time $t$. The intepretation of the hazard 
 function is the risk of dying at time $t$. 
 
-To get a sense of what is the hazard function, let's consider the 
-survival function. If $T$ is a continous random variable 
+To get a sense of what the hazard function is, let's first consider the 
+survival function. If $T$ is a continous random variable representing the time of death, 
 with probability distribution $f(t)$ and cumulative 
 distribution $F(t)$ that represents the survival time, 
 we can describe the cumulative distribution function as
@@ -897,10 +895,10 @@ at time $t$.
 
 Now, as mentioned above, the hazard function is 
 risk of dying at time $t$. Another way of phrasing 
-this is the patient was given the patient was alive
+this is given the patient was alive
 at time $t$, what's the conditional probability of 
 dying in the next time interval of length  $\Delta t$, 
-or that the event will occurr in the interval 
+or that the event, death, will occurr in the interval 
 $[t,  t+ \Delta t)$.
 
 $$ h(t) =\displaystyle{\lim_{\Delta t \to 0}} 
@@ -933,12 +931,12 @@ $$h(t | \mathbf{X}_i)= h_0(t)  \exp(\beta_1 X_{i1} + \ldots \beta_p X_{ip})
 
 where the coefficients $\beta = \{\beta_1, \ldots, \beta_p \}$
 are the effect sizes of the covariates $\mathbf{X}_i$. 
-The quantities $\exp{\beta_j}$ are called hazard ratios (HR). 
-If $\beta_j > 0$ (or $\exp{\beta_j}$ > 1), this implies as 
+The quantities $\exp({\beta_j})$ are called hazard ratios (HR). 
+If $\beta_j > 0$ (or $\exp({\beta_j})$ > 1), this implies as 
 $X_{ij}$ increases, the hazard increases and thus the 
 survival probability decreases. In constrast, if the HR is 
 less than 1, then this is a reduction in the hazard (or 
-and increase in survival). 
+an increase in survival). 
 
 **Note**: If you take the log of the hazard function, this
 becomes a linear model with a baseline hazard function 
@@ -948,20 +946,20 @@ which is useful when the probability of an event is very
 small or very large. 
 
 Finally, $h_0(t)$ is the baseline hazard at time $t$. 
-This is hazard if all the $\mathbf{x}_i$ are 0. A 
+This is the hazard if all the $\mathbf{x}_i$ are 0. A 
 **key assumption** of the Cox PH model is 
 that the baseline hazard curves for groups of observations 
 should be proportional and cannot cross.
 
 Let's explore what we mean by this. Consider the $i^{th}$ and
-$j^{th}$ observation with only one covariate $X_1$, but the 
-observed value differs between the $i^{th}$ and
-$j^{th}$ observation. The ratio of their hazard functions is
+$j^{th}$ observation and suppose we have only one covariate $X_1$, with 
+observed values that differ between the $i^{th}$ and
+$j^{th}$ observations. The ratio of their hazard functions is
 
 $$ \frac{h_i(t|X_{1}  = x)}{h_j(t|X_{1} = x^{'})}=\frac{h_0(t) e^{\beta x}}{h_0(t) e^{\beta x^{'}}}=e^{\beta (x-x^{'})}$$
 
 
-which is independent with respect to time. Another way of 
+which is independent of time. Another way of 
 phrasing this is that the hazard of the event in any group
 is a constant multiple of the hazard in any other group. 
 
@@ -972,20 +970,21 @@ Cox PH model (we give an example of this below).
 ### Model Application
 
 Now, we can fit a Cox PH model using the `coxph()` function, 
-from the `survival` package. Similiar to the estimating a 
+from the `survival` package. Similiar to when we estimated a 
 Kaplan-Meier curve, we first create a survival object 
 using the `Surv()` function (e.g. `Surv(time, death)`). 
 
-In the next section, we will fit a few univariate Cox 
-PH models and then we will fit a multivariate Cox PH 
-model using all the covariates in our dataset (`rhc_psm_df`) 
-afterwards. We note that both of these models are using
-the data after adjusting for propensity scores.
+In the next section, we will first fit a few univariate Cox 
+PH models to illustrate the model behavior and interpretation. We will then fit a multivariate Cox PH 
+model using all the covariates in our dataset (`rhc_psm_df`). We note that both of these models are using
+the data after matching based on propensity scores.
+
+SHEENA: Can you add a comment about why it is important to adjust for covariates again, even when you have matched based on the propensity scores?
 
 #### Univariate Cox PH model
 
-To apply univariate Cox PH models, we will include
-only one variable in the Cox PH model. Here we select 
+To fit a univariate Cox PH model, we include
+only one variable in the Cox PH model formula. Here we select 
 the `RHC`, `age` and `weight` variables as examples, 
 and show the results.
 
@@ -1038,10 +1037,10 @@ does not have a statistically significant effect.
 #### Multivariate Cox PH model
 
 Next, we will fit a Cox PH model using the `coxph()` 
-function using all the covariates in our dataset 
-(`rhc_psm_df`) after propensity score estimation. 
+function and including all the covariates in our dataset 
+(`rhc_psm_df`), after propensity score estimation. 
 
-Now, if we recall the column names in our dataset, 
+First, we recall the column names in our dataset: 
 
 ```{r}
 colnames(rhc_psm_df)
@@ -1049,10 +1048,10 @@ colnames(rhc_psm_df)
 
 To incorproate all the variables in the model, we can 
 use the `~ .` R model formula syntax, but we need to 
-suse the negative (`-`) syntax to exclude some variables. 
-We see the propensity socre (`distance`) and weights 
+use the negative sign (`-`) to exclude some variables. 
+We see the propensity score (`distance`) and weights 
 (`weights`) that were calcuated by `matchit()` are 
-included, which we do not need in model fitting. We 
+included in our data frame, but are not needed in model fitting. We 
 also do not want to include the covariates `time` 
 or `death` as these covariates are used in the `sur_obj`
 object to note right censored observations. 
@@ -1087,27 +1086,26 @@ tail(res_exp)
 ```
 
 
-### Check assumption
+### Check the fundamental assumption
 
 Now that we have fit our Cox PH model, let's check 
 the assumptions of the Cox PH model in our data. 
 If you recall, the **fundamental assumption** of the 
 Cox PH model is that the model assumes the hazard is
-constant with the time. For instance, in our case we 
-want to evaluate the relationship of patients being 
-managed with the RHC treatment on the hazard of death, 
+constant with time. For instance, in our case we 
+want to evaluate the relationship between patients being 
+managed with the RHC treatment and the hazard of death, 
 controlling for possible confounding variables which might
 be related to death. But what if some variables' values 
 change over time?
 
 #### Complementary log-log plot
 
-One way to do this is to use data visualizations to check 
-the assumption. A plot that shows a non-random pattern 
+One way to check the fundamental assumption is to use a data visualization. A plot that shows a non-random pattern 
 against time is a violation of the assumption. 
 
 The first plot we will consider is the "complementary 
-log-log" model ($log(-log(1-h(t)))$ or $log(-log(S(t)))$ 
+log-log" model, which displays ($log(-log(1-h(t)))$ or $log(-log(S(t)))$ 
 vs. $ln(t)$. For a given variable (e.g. `RHC`), here is
 a cartoon of what it looks like if the assumption is 
 not violated:
@@ -1116,7 +1114,7 @@ not violated:
 ![](doc/check-support.png)
 </center>
 
-And here is a cartoon of what it would look like if the 
+And here is a cartoon of what it might look like if the 
 assumption was violated: 
 
 <center>
@@ -1124,12 +1122,12 @@ assumption was violated:
 </center>
 
 Here we see that the survival curves cross, clearly 
-indicating a violation of the proportional hazards assumption. 
+indicating a violation of the proportional hazards assumption, i.e., the ratio of the baseline hazard values is not constant over time, but is smaller or bigger as the lines get closer together or farther apart. 
 
-Now let's look at it in our data, we still use
-`ggsurvplot()` to plot it. `fun` optionn is an
+Now let's look at this visualization using our data. We still use
+`ggsurvplot()` to plot it. The `fun` option is an
 arbitrary function defining a transformation of 
-the survival curve, we use `log(-log(x))` to 
+the survival curve, and we use `log(-log(x))` to 
 get the complementary log-log plot: 
 
 ```{r}
@@ -1148,8 +1146,8 @@ Another approach is to use a formal statistical test to
 asesses the proportional hazards assumption. Here we will 
 use the `cox.zph()` function in `survival` package. It tests
 for proportionality of all the variables specified in the model 
-by creating interactions terms with time (on the log scale). 
-Then, the function will test for independence for each 
+by creating interaction terms with time (on the log scale). 
+Then, the function will test for independence of each 
 variable. It also performs a global test for all the 
 interactions tested together in the model. If the _p_-value 
 is less than 0.05, this suggests a violation of the PH
@@ -1165,14 +1163,13 @@ Now the model is
 $$log~h(t|X_1)= \beta_0 + \beta_1~X_1 + \beta_1^{'}(X_1*log~t)$$
 
 Using a null hypothesis of $H_0: \beta_1^{'}=0$, we can 
-assess whether or not there is a relationship with time by 
-if we reject or fail to reject the null hypothesis. Note, 
+assess whether or not there is a relationship with time according to whether we reject or fail to reject the null hypothesis. Note, 
 a _p_-value less than a specified Type 1 error (e.g. $\alpha$ 
-= 0.05) suggests there is evidence that the variable ($X_1$) is 
+= 0.05) suggests there is evidence that the effect of the variable ($X_1$) is 
 time-varying.
 
 To illustrate the test, we use our data set as an example,
-we use the `fit_all` Cox PH model from above. The `transform`
+and we use the `fit_all` Cox PH model from above. The `transform`
 argument describes how the survival times should be
 transformed before the test is performed. For example, we 
 use `transform = log` to get $X*log~t$ in our model. 
@@ -1197,12 +1194,11 @@ represents the PH level from the patient.
 
 Let's explore this a bit more with a graphical assessment of 
 the Schoenfeld residuals. Here we pick out 6 variables (`age`, 
-`sex`,  `education`, `diseaseComa`, `diseaseCOPD` and `ph`)
-including the `ph` variable and graphically assessess 
-whether or not there is a relationship with time. 
+`sex`,  `education`, `diseaseComa` and `diseaseCOPD`, as well as `ph`) and graphically assessess 
+whether or not there is a relationship between the variable and time. 
 We will use the function `ggcoxzph` in package `survminer`, 
 which will generate plots of residuals for individual 
-predictors and a non-zero slope is an evidence against
+predictors against time, where a non-zero slope is evidence against
 the Cox PH assumption. 
 
 ```{r,fig.width=9, fig.height=8}
@@ -1212,7 +1208,9 @@ plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,5,17,18,30)]
 grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
 ```
 
-The `grid.arrange()` function in package `gridExtra` can be  
+SHEENA: Is there a way to use names instead of c(1,2,5,17,18,30)?
+
+The `grid.arrange()` function in the package `gridExtra` can be  
 used to arrange several plots in one chunk. The `ggcoxzph` 
 function returns an object which is a list of ggplot objects, 
 rather than plot a `grob`, or more specifically, gtables. 
@@ -1223,7 +1221,7 @@ So to convert them, we use `ggplotGrob()` function in package
 with function `grid.arrange()`.
 
 In the figures above, the solid line is a smoothing spline
-fit to the plot, with the dashed lines representing confidence
+fit to the plot, with the dashed lines representing a 95% confidence
 interval. As we said, an apparent departure from a horizontal 
 line indicates violation for assumption. All of these 6 
 variables have a zero slope, suggesting the assumption is 
@@ -1240,7 +1238,7 @@ the `ph` variable, we do not see a strong relationship with time.
 One way this can happen is if we are testing a model with many 
 variables, the _p_-values from some variables may be less 
 than 0.05 by chance. Especially when there are lots of 
-variables, a subtle deviance will be reflected on p-value. 
+variables, a subtle deviation will be reflected in the p-value. 
 
 
 ### Comparing estimates of survival 
@@ -1263,8 +1261,8 @@ res_uni1 <- tidy(fit_uni1, exponentiate = TRUE,
 res_uni1
 ```
 
-For multivariate case, the result is shown below.
-We are only interested in 'RHC' so we extract its
+For the multivariate case, the result is shown below.
+We are only interested in the `RHC` variable so we extract its
 result:
 
 ```{r}
@@ -1278,6 +1276,8 @@ res_all <- tidy(fit_all,exponentiate = TRUE,
 
 res_all[31, ] # row contains result for RHC
 ```
+
+SHEENA: Can you use a row name instead of 31?
 
 Then we would like to summarise them in a table:
 ```{r}
@@ -1295,13 +1295,13 @@ df_res %>%
   kable_styling()
 ```
 
-The results for these two model don't vary too much.
+The results for these two models are not very different from one another.
 
 Also, we can add survival plots with the curves split 
-by `RHC` with the help of `ggadjustedcurves()` function in 
+by `RHC` with the help of the `ggadjustedcurves()` function in 
 `survminer` package. 
 
-If we compare that to the survival plot after adjusting for 
+If we compare this to the survival plot after adjusting for 
 other covariates, we see that: 
 
 ```{r,fig.width=12, fig.height=6}
@@ -1336,77 +1336,76 @@ before, `p_km` is a list created by function
 `arrange_ggsurvplots()` can be used to arrange
 multiple `ggsurvplot`s. 
 
-But the other two plots are created by 
-`ggadjustedcurves()` that are compatible with 
-`grid.arrange()`. There is an easy way to solve it: 
-extract `plot` object from list `p_km`.
+However, the other two plots are created by 
+`ggadjustedcurves()`, which are compatible with 
+`grid.arrange()`. There is an easy way to solve this issue: 
+extract the `plot` object from list `p_km`.
 
 The middle and right plots show survival curves
-for matched dataset, corresponding to univariate 
-or multivariate model respectively. In multivariate 
-case, the difference of survival rate seems to be smaller 
-than that in univariate case, but it is subtle.
+for a matched dataset, corresponding to univariate 
+or multivariate model respectively. In the multivariate 
+case, the difference in the survival rate seems to be smaller 
+than in the univariate case, but it is only a slight difference.
 
 Compared with the Kaplan-Meier plot (left), whether 
-we use univariate or multivariate model, the 
-difference of survival rate between these two 
-groups tenuates; But patients in `RHC` group still
-have lower survival rate than `No RHC` group. 
+we use a univariate or multivariate model, the 
+difference of the survival rate between these two 
+groups is attenuated. However, patients in the `RHC` group still
+have a lower survival rate than those in the `No RHC` group. 
 
 
 # Summary
 
-In this case study, we mainly revealed the association between time to death 
-in 30 days and RHC based on an observational dataset. We covered various fields 
-to deal with this situation, such as survival analysis, propensity score matching and
-Cox proportional hazards model. In conclusion, RHC has a positive relationship with 
-risk of mortality even though we applied adjustment. 
+In this case study, we explored the association between time to death 
+and RHC based on an observational dataset collected over the course of 30 days. We covered various statistical topics 
+to help us assess this association, such as survival analysis, propensity score matching and
+the Cox proportional hazards model. Based on our analyses, we can conclude that RHC has a positive relationship with 
+the risk of mortality even when adjusting for confounding variables. 
 
-At first we separated the dataset in two groups, No RHC group and RHC group, 
-based on the variable `RHC`. We gave a table to show the distribution of all variables
-in two groups and visualize the difference. We found some of them have large difference, 
+We started by looking at the data, separating the dataset into two groups based on whether or not the subject received RHC, 
+using the variable `RHC`. We made a table to show the distributions of all other variables
+in the two groups, and made some figures to visualize these differences. We found some variables have large differences, 
 such as blood pressure and PaO2/FIO2 ratio, while others do not vary too much, like age.
 
 
-Then we tried Kaplan-Meier method, a non-parametric method, to find 
-the relationship of survival rate and whether a patient receive RHC treatment or not. 
+Next we tried the Kaplan-Meier method, a non-parametric method, to find 
+the relationship between survival rate and whether a patient received RHC treatment or not. 
 The result was shown as a survival curve plot. It provided us an initial understanding 
-that survival rate is higher in population managed without RHC treatment. 
+that the survival rate is higher in the population managed without RHC treatment. 
 
-But, since it is an observational dataset, the bias in treatment selection 
-is an unavoidable problem, resulting in lower accuracy. To solve it, we made use of 
-a causal inference method: propensity score matching. Logistic regression was 
-applied to determine the probability of receiving RHC (propensity score). 
-It represented the relationship between multiple covariates and the use of RHC 
-and was used as a criteria to match. We matched observations based on propensity score 
-and finally kept `r 0.5*dim(rhc_psm_df)[1]` pairs. As expected, the outcomes was pretty successful
-considering a much more balanced distribution of propensity score in two groups.
+But, since we are working with an observational dataset, the bias in treatment selection 
+is an unavoidable problem, so these initial results may be misleading. To solve this problem, we made use of 
+the causal inference method of propensity score matching. Logistic regression was 
+applied to determine the probability of receiving RHC (propensity score), given an array of additional variables. 
+This probability represented the relationship between multiple covariates and the use of RHC 
+and was used as a criterion to match subjects. We matched subjects based on propensity score 
+and finally kept `r 0.5*dim(rhc_psm_df)[1]` pairs. As expected, the remaining data showed a much more balanced distribution of propensity scores across the two groups.
 
 In the next step, we further improved our survival analysis model
-by using a parametric method: Cox proportional hazards model. First
-we applied univariate model and showed three examples. Then all necessary
-variables were included, avoiding that we may ignore potential risks. 
-We also evaluated the proportionality assumption both with graphical
-checks and statistical test. There is no obvious pattern with time
-so the assumption is supported with our data set. 
+by using a parametric method, the Cox proportional hazards model. First
+we applied a univariate model, showing three examples. Then all necessary
+variables were included, to avoid ignoring potential confounders. 
+We also evaluated the proportionality assumption that is made when using a Cox PH model, both with graphical
+checks and a statistical test. There is no obvious pattern with time
+so the assumption does not seem to be violated in our data set. 
 
-Furthermore, we adjusted outcomes. Whether with univariate or 
-multivariate model, the difference of survival between two groups tenuates, 
-proving the necessity of what we did (data matching); However, 
-survival rate for patients with RHC treatment are still lower than
+Finally, we fit a mutlivariate Cox PH model to assess adjusted outcomes. Comparing the univariate and 
+multivariate model, the difference of survival between two groups decreases with the multivariate model, 
+supporting our choice of performing data matching to alleviate confounding. However, 
+the survival rate for patients with RHC treatment is still lower than
 patients without RHC treatment so we concluded this treatment is harmful.
 
 
-There exists much more space for further improvement such as variable selection 
-and model engineering. Original data set include `r nrow(rhc)` variabels but we just used 
-`r nrow(rhc_psm_df)` variables. Undoubtedly more influential variables provide more information,
-drawing in more accurate result. You are encouraged to construct a more complex model with 
-further variable and model engineering.
+Opportunities for further improvement of our model include variable selection 
+and model engineering. The original data set includes `r nrow(rhc)` variables but we used just 
+`r nrow(rhc_psm_df)` variables in our analysis. Including additional informative variables could provide more information,
+and give us a more accurate result. You are encouraged to construct a more complex model with 
+further variables and model engineering.
 
-Our outcomes seem to be opposite to the widespread belief that RHC is 
-recommended in broad clinical application. This may be caused by the confounding variables 
-which increase the probability of receiving RHC and the probability of death overall. 
-We admit the limitation of this study and would like to receive more suggestion to 
+Our outcomes seem to directly oppoese the widespread belief that RHC is 
+recommended in broad clinical applications. This may be caused by the fact that confounding variables 
+which increase the probability of receiving RHC and the probability of death overall make it difficult to accurately assess the impact of RHC based on anectodal observation. Our analysis, which attempts to control for these confounders, aims to produce a more rigorous statistical result, within the limitations of this observational data set. 
+However, we admit the limitations of this study and are happy to receive additional suggestions to 
 better understand the role of RHC. 
 
 
