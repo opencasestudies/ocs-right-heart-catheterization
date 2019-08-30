@@ -521,7 +521,10 @@ fit <- survfit(sur_obj ~ RHC, data = rhc_df)
 fit
 ```
 
-SHEENA: I am getting a bunch of NAs in the output of survfit. Is that correct?
+The reason why we get 'NA' here is: median survival is 
+the time at which the survival rates equals 0.5. 
+In our case, since minimum value is over 0.6, 
+it never gets there, thus the output shows 'NA'.
 
 The total number of the patients managed by RHC is 
 `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and 
@@ -1177,7 +1180,6 @@ use `transform = log` to get $X*log~t$ in our model.
 ```{r}
 check.ph <- cox.zph(fit_all, transform = 'log')
 check.ph 
-
 ```
 
 The first column (`rho`) gives the Pearson product-moment 
@@ -1207,8 +1209,6 @@ plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,5,17,18,30)]
 #plot them in one chunk
 grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
 ```
-
-SHEENA: Is there a way to use names instead of c(1,2,5,17,18,30)?
 
 The `grid.arrange()` function in the package `gridExtra` can be  
 used to arrange several plots in one chunk. The `ggcoxzph` 
@@ -1274,10 +1274,8 @@ fit_all <- coxph(Surv(time, death) ~ . -
 res_all <- tidy(fit_all,exponentiate = TRUE,
             conf.int = TRUE, conf.level = 0.95)
 
-res_all[31, ] # row contains result for RHC
+res_all[res_all$term == 'RHC', ] # row contains result for RHC
 ```
-
-SHEENA: Can you use a row name instead of 31?
 
 Then we would like to summarise them in a table:
 ```{r}
