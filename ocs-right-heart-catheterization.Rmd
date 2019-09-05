@@ -422,9 +422,8 @@ at risk of dying ($n_i$).
 Here, the Kaplan-Meier estimator excludes the following people from the denominator: those who have 
 died, those who withdrew from the study, those who are
 lost to follow-up, or those who are alive without event occurrence 
-at last follow-up (right-censored). Otherwise it is likely that the probability of death will be underestimated. 
-[SHEENA: I think we need to clarify that the excusion is based on status at the time in question, right?]
-
+at last follow-up (right-censored) - based on status at the time in question.
+Otherwise it is likely that the probability of death will be underestimated. 
 
 The estimated survival function is written as:
 
