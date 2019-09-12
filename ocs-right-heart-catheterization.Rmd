@@ -28,7 +28,7 @@ patient's heart is pumping or to measure the
 pressure in a patient's heart and lungs. Broadly, 
 the procedure guides a pulmonary artery (PA) catheter 
 (a small and hollow tube) through the pulmonary artery 
-and into the right chambers of the heart. Here is the
+and into the right chambers of the heart. Here is a
 video to help describe in more detail how it works.
 
 <div align="center">
@@ -47,17 +47,16 @@ a dye is injected into the heart, potential complications
 include the rupture of pulmonary artery or arrythmias of 
 the heart where the heart may skip a beat. 
 
-To evaluate the benefit of RHCs, one approach is to use a 
+To evaluate the benefit of RHCs, one approach would be to use a 
 randomized controlled trial (RCT). However, because of the 
 widespread belief that RHCs are beneficial and safe, it 
-makes it difficult to use RCTs. Without RCTs of RHCs,
-another approach to evaluate its effectiveness is an
+is difficult to obtain approval and support to conduct an RCTs. Without an RCT of RHCs,
+another approach to evaluate its effectiveness is to use an
 observational study. 
 
 The motivation of this case study is to investigate 
 whether or not there is an impact on a patient's overall 
-survival (or mortality) due to  
-treatment with a RHC, using an observational dataset. 
+survival (or mortality) due to treatment with a RHC, using an observational dataset. 
 
 Our main predictor of interest is RHC, but we also want 
 to adjust for other potential confounders in the dataset 
@@ -108,8 +107,8 @@ The learning objectives for this case study include:
 
   * some basic data wrangling and visualizations (using the `tidyverse` packages)
   * a causal inference method: propensity score matching (using the `MatchIt` package)
-  * multivariate logistic regression (using `stats` package)
-  * survival analysis (using `survival` package)
+  * multivariate logistic regression (using the `stats` package)
+  * survival analysis (using the `survival` package)
 
 # What is the data?
 
@@ -249,7 +248,7 @@ tblprint[c(2, 8, 35, 36, 37, 38, 39, 40, 41, 43),4] <- 't-test'
 ```
 
 The `CreateTableOne()` function creates an object summarizing 
-all baseline variables, optionally stratifying by one or more variables and performing statistical tests. The p-values from the statistical test comparing the two groups is given in the `P` column. To 
+all baseline variables, optionally stratifying by one or more variables and performing statistical tests. The p-values from the statistical test comparing the two groups is given in the `p` column. To 
 make this object easy to manipulate, e.g., to be able to change 
 values or use the `kable()` function to display the table, we use the
 function `print()` to change its type to a dataframe.
@@ -280,10 +279,9 @@ Patients with RHC were less likely to have cancer.
 Knowing information about how these characteristics differ between 
 patients that were or were not managed with `RHC` is 
 important because we want to identify the impact of `RHC` on survival, independent of other 
-differences (e.g. whether they have cancer or not) 
-in the two populations of patients. We will 
+differences in the two populations of patients (e.g. whether they have cancer or not). We will 
 learn in a little bit more about how to overcome these
-differences between the two groups below. 
+differences between the two groups, and isolate the effect of RHC on mortality, below. 
 
 ## Data visualization
 
@@ -303,25 +301,25 @@ to arrange the subfigures into one plot.
 p1 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = sex)) + 
           geom_bar() +
-           ggtitle('distribution of RHC')
+           ggtitle('Distribution of sex')
 p2 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = race)) + 
           geom_bar(position = "fill") + 
-           ggtitle('distribution of RHC') + 
-          ylab('proportion')
+           ggtitle('Distribution of race') + 
+          ylab('Proportion')
 
 p3 <- rhc_df %>% 
         ggplot(aes(x = RHC, fill = med_ins)) + 
           geom_bar(position = "fill") + 
-           ggtitle('distribution of RHC') + 
-          ylab('proportion')
+           ggtitle('Distribution of insurance') + 
+          ylab('Proportion')
 
 ggarrange(p1, p2, p3, ncol=3, nrow=1)
 ```
 
 The difference between the left plot and the 
 other two plots, is the middle and right plots 
-use the command `position='fill'` option in
+use the `position='fill'` option in
 the `geom_bar()` function. In this case, it 
 shows the proportion rather than count making 
 the y-axis cover the entire range between 
@@ -342,16 +340,16 @@ pick three continuous variables and visualize them.
 p4 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = age, fill = RHC)) + 
           geom_boxplot() + 
-           ggtitle('distribution of age')
+           ggtitle('Distribution of age')
 p5 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = bp, fill = RHC)) + 
           geom_boxplot() + 
-           ggtitle('distribution of blood pressure') +
+           ggtitle('Distribution of blood pressure') +
             ylab('blood pressure')
 p6 <- rhc_df %>% 
         ggplot(aes(x = RHC, y = pf, fill = RHC)) + 
           geom_boxplot() + 
-            ggtitle('distribution of PaO2/FiO2') +
+            ggtitle('Distribution of PaO2/FiO2') +
               ylab('PaO2/FIO2 ratio')
 
          
@@ -511,7 +509,7 @@ Also, the `sur_obj` object can be interpreted by the
 (see below) which is used to compute an estimate of a 
 survival curve for censored data.
 In addition to the `sur_obj` object that we created, the
-`survfit()` function also includes as input the response 
+`survfit()` function also requires as input the response 
 variable of interest in a simple case of right-censored data. 
 Here that is the `RHC` variable. 
 
@@ -520,10 +518,10 @@ fit <- survfit(sur_obj ~ RHC, data = rhc_df)
 fit
 ```
 
-The reason why we get 'NA' here is: median survival is 
-the time at which the survival rates equals 0.5. 
-In our case, since minimum value is over 0.6, 
-it never gets there, thus the output shows 'NA'.
+The reason why we get 'NA' here is: the median survival time is 
+the time at which the survival rate equals 0.5. 
+In our case, since minimum survival rate is over 0.6, 
+it never gets as low as 0.5, and thus the output shows 'NA'.
 
 The total number of the patients managed by RHC is 
 `r sum(rhc_df$RHC == 1, na.rm = TRUE)`, and 
@@ -535,12 +533,12 @@ The total number of the patients not having RHC is
 `r sum(rhc_df$RHC == 0, na.rm = TRUE) - fit$n.censor[29]` of them 
 died in 30 days (or a proportion of `r round(1-(fit$n.censor[29]/sum(rhc_df$RHC == 0, na.rm = TRUE)),2)`).
 
-To show the survival curve, the function
+To show a visual display of the survival curve, the function
 [`ggsurvplot()`](https://www.rdocumentation.org/packages/survminer/versions/0.4.4/topics/ggsurvplot)
 from the package [`survminer`](https://cran.r-project.org/web/packages/survminer/index.html)
 can be used to create a Kaplan-Meier curve for `survfit` objects. 
-`ggurvplot()` returns an object of class ggsurvplot which is 
-list containing the survival plot, the data used to create the plot, etc.
+`ggurvplot()` returns an object of class `ggsurvplot` which is 
+a list containing the survival plot, the data used to create the plot, etc.
 We can also use this to show the survival rate stratified by 
 whether or not a patient was managed with `RHC`.
 
@@ -599,7 +597,7 @@ it is beneficial for patients to be managed by RHC [see @Connors_1996].
 Therefore, a RCT is not possible. However, one of the main benefits of an RCT is that randomization helps us to isolate the effect we are interested in measuring, by making sure the two comparison groups are otherwise similar on all other relevant variables. In an observational data set, this is rarely the case, especially when variables are used to assign treatment that may also have an impact on patient survival. The Connors et al. paper
 explains this phenomenon like this: 
 
-> In observational studies, the treatment selection has connection 
+> In observational studies, the treatment selection has a connection 
 with patient characteristics but also has a link with the outcomes. 
 For example, patients with lower blood pressure are more likely to get RHC, 
 and they are also more likely to die. The effect of such treatment selection bias 
@@ -611,8 +609,8 @@ as a way to adjust for treatment selection bias.
 ### Propensity score: conceptual framework
 
 The propensity score is defined as the probability a patient receives a treatment, 
-with consideration of the complete information about this patient. 
-The information may include variables such as `age`, `gender` and `blood pressure` etc. To use propensity scores, we need a way to estimate these probabilities, and then figure out how to use these propensity scores to isolate the effect we are interested in measuring, i.e., the effect of RHC on patient survival. 
+taking into account the complete information about this patient. 
+The information may include variables that affect the chance that the patient receives the treatment, such as `age`, `gender`, `blood pressure` etc. To use propensity scores, we need a way to estimate this probability for each patient, and then figure out how to use these propensity scores to isolate the effect we are interested in measuring, i.e., the effect of RHC on patient survival. 
 
 
 It turns out that we can estimate the propensity score using a tool we may have used in other contexts: logistic regression. To set up the logistic regression model, the potentially informative variables are treated as 
