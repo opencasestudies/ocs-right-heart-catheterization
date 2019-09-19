@@ -870,18 +870,76 @@ one covariate), the Cox PH model can be a _multivariate_
 model that simultaneously assesses the effect of 
 multiple covariates on survival time. 
 
+We would first show the basic knowledge of it, then
+provide its background theory and you can have a look
+if you are interested in.
 
-### Basics of the Cox PH model
+### Basics Knowledge
 
 The Cox PH model is expressed using the hazard function
 $h(t)$ at time $t$. The intepretation of the hazard 
-function is the risk of dying at time $t$. 
+function is the risk of dying at time $t$, you can think 
+it as time-specific risk of having event of die.
 
-To get a sense of what the hazard function is, let's first consider the 
-survival function. If $T$ is a continous random variable representing the time of death, 
-with probability distribution $f(t)$ and cumulative 
-distribution $F(t)$ that represents the survival time, 
-we can describe the cumulative distribution function as
+As a reminder, we noted that the Cox PH model 
+is expressed using the hazard function $h(t)$ 
+at time $t$. For the $i^{th}$ observation and a given
+set of covariates 
+$\mathbf{X}_i = \{ X_{i1}, \ldots X_{ip} \}$, 
+the Cox PH model has the form 
+
+$$h(t | \mathbf{X}_i)= h_0(t)  \exp(\beta_1 X_{i1} + \ldots \beta_p X_{ip}) 
+= h_0(t) \exp(\beta \mathbf{X}_{i}) $$
+
+where the coefficients $\beta = \{\beta_1, \ldots, \beta_p \}$
+are the effect sizes of the covariates $\mathbf{X}_i$. 
+
+**Note**: If you take the log of the hazard function, this
+becomes a linear model with a baseline hazard function 
+that varies over time. However, another link function is the 
+"complementary log-log" model (or $log(-log(1-h(t)))$), 
+which is useful when the probability of an event is very 
+small or very large. 
+
+Here, $h_0(t)$ is the baseline hazard at time $t$. 
+This is the hazard if all the $\mathbf{x}_i$ are 0. A 
+**key assumption** of the Cox PH model is 
+that the baseline hazard curves for groups of observations 
+should be proportional and cannot cross.
+
+To be specific, consider the $i^{th}$ and
+$j^{th}$ observation and suppose we have only one covariate $X_1$, with 
+observed values $x$ and $x^{'}$ for the $i^{th}$ and
+$j^{th}$ observations. The ratio of their hazard functions is
+
+$$ \frac{h_i(t|X_{1}  = x)}{h_j(t|X_{1} = x^{'})}=\frac{h_0(t) e^{\beta x}}{h_0(t) e^{\beta x^{'}}}=e^{\beta (x-x^{'})}$$
+
+which is independent of time! Another way of 
+phrasing this is that the hazard for any observation
+is a constant multiple of the hazard for any other observation. 
+
+$\exp({\beta})$ is called hazard ratios (HR). 
+If $\beta > 0$ (or $\exp({\beta})$ > 1), this implies as 
+$X_{1}$ increases, the hazard increases and thus the 
+survival probability decreases. In constrast, if the HR is 
+less than 1, then this is a reduction in the hazard (or 
+an increase in survival). 
+
+If you take log of the above formula, you will get
+
+$$ log(h_i(t|X_{1}  = x)) - log (h_j(t|X_{1} = x^{'})) = \beta (x-x^{'})$$
+
+Now, slopes $\beta$ is interpretable as difference in log(hazard) 
+with difference in $X_{1}$ at a given time(t). 
+
+### Background Theory
+
+To get a sense of what the hazard function is, let's first 
+consider the survival function. If $T$ is a continous random 
+variable representing the time of death, with probability 
+distribution $f(t)$ and cumulative distribution $F(t)$ that 
+represents the survival time, we can describe the cumulative 
+distribution function as
 
 $$F(t) = Pr(T < t)$$
 
@@ -917,54 +975,6 @@ If we divide by $\Delta t$ and take the limit as
 $\Delta t \to 0$, then the hazard function is just 
 
 $$h(t) = \frac{f(t)}{S(t)}$$
-
-Neat! OK now we are ready to get back to the Cox PH
-model. As a reminder, we noted that the Cox PH model 
-is expressed using the hazard function $h(t)$ 
-at time $t$. For the $i^{th}$ observation and a given
-set of covariates 
-$\mathbf{X}_i = \{ X_{i1}, \ldots X_{ip} \}$, 
-the Cox PH model has the form 
-
-$$h(t | \mathbf{X}_i)= h_0(t)  \exp(\beta_1 X_{i1} + \ldots \beta_p X_{ip}) 
-= h_0(t) \exp(\beta \mathbf{X}_{i}) $$
-
-where the coefficients $\beta = \{\beta_1, \ldots, \beta_p \}$
-are the effect sizes of the covariates $\mathbf{X}_i$. 
-The quantities $\exp({\beta_j})$ are called hazard ratios (HR). 
-If $\beta_j > 0$ (or $\exp({\beta_j})$ > 1), this implies as 
-$X_{ij}$ increases, the hazard increases and thus the 
-survival probability decreases. In constrast, if the HR is 
-less than 1, then this is a reduction in the hazard (or 
-an increase in survival). 
-
-**Note**: If you take the log of the hazard function, this
-becomes a linear model with a baseline hazard function 
-that varies over time. However, another link function is the 
-"complementary log-log" model (or $log(-log(1-h(t)))$), 
-which is useful when the probability of an event is very 
-small or very large. 
-
-Finally, $h_0(t)$ is the baseline hazard at time $t$. 
-This is the hazard if all the $\mathbf{x}_i$ are 0. A 
-**key assumption** of the Cox PH model is 
-that the baseline hazard curves for groups of observations 
-should be proportional and cannot cross.
-
-Let's explore what we mean by this. Consider the $i^{th}$ and
-$j^{th}$ observation and suppose we have only one covariate $X_1$, with 
-observed values that differ between the $i^{th}$ and
-$j^{th}$ observations. The ratio of their hazard functions is
-
-$$ \frac{h_i(t|X_{1}  = x)}{h_j(t|X_{1} = x^{'})}=\frac{h_0(t) e^{\beta x}}{h_0(t) e^{\beta x^{'}}}=e^{\beta (x-x^{'})}$$
-
-
-which is independent of time. Another way of 
-phrasing this is that the hazard of the event in any group
-is a constant multiple of the hazard in any other group. 
-
-This assumption should always be checked when using the
-Cox PH model (we give an example of this below). 
 
 
 ### Model Application
