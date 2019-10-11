@@ -56,7 +56,12 @@ observational study.
 
 The motivation of this case study is to investigate 
 whether or not there is an impact on a patient's overall 
-survival (or mortality) due to treatment with a RHC, using an observational dataset. 
+survival (or mortality) due to treatment with a RHC, using an observational dataset. To answer this question, we will introduce tools used in survival analysis, including propensity scores and Cox Proportional Hazards models. We will eventually be able to make and interpret figures like this one, which illustrates the trajectory of survival probabilities over time for people who did or did not receive RHC.
+
+```{r echo=FALSE, out.width='50%', fig.align="center"}
+knitr::include_graphics('./img/SummaryPlot.png')
+```
+
 
 Our main predictor of interest is RHC, but we also want 
 to adjust for other potential confounders in the dataset 
@@ -837,7 +842,7 @@ histograms before matching are on the left,
 and the histograms after matching are on the right. 
 
 
-## Cox Proportional Hazard Model
+## Cox proportional hazards model
 
 Given our new balanced data set, let's continue to investigate the 
 effect of RHC on the probability of survival 
@@ -852,10 +857,9 @@ can be used to get a first-pass understanding based on
 a single covariate (e.g. `RHC`). More often than not,
 we want to estimate survival probablities taking 
 into account additional characteristics that may
-influence the outcome, such as `blood pressure`, or  
-`age`. In our case, we are interested in the effect 
+influence the outcome, such as `blood pressure`, or  `age`. In our case, we are interested in the effect 
 of `RHC`, but we also know there are additional 
-covariates that also might effect the outcome. So, we 
+covariates that might effect the outcome. So, we 
 would like to adjust for these additional covariates. 
 
 This is where we will introduce the
@@ -870,45 +874,38 @@ one covariate), the Cox PH model can be a _multivariate_
 model that simultaneously assesses the effect of 
 multiple covariates on survival time. 
 
-We would first show the basic knowledge of it, then
-provide its background theory and you can have a look
-if you are interested in.
+We will first give an overview of the concepts behind a Cox PH model, then
+provide some background theory that you can take a look at
+if you are interested.
 
-### Basics Knowledge
+### Overview of the Cox PH model
 
 The Cox PH model is expressed using the hazard function
 $h(t)$ at time $t$. The intepretation of the hazard 
-function is the risk of dying at time $t$, you can think 
-it as time-specific risk of having event of die.
-
-As a reminder, we noted that the Cox PH model 
-is expressed using the hazard function $h(t)$ 
-at time $t$. For the $i^{th}$ observation and a given
+function is the risk of dying at time $t$, so you can think 
+it as a time-specific chance of dying. For the $i^{th}$ observation and a given
 set of covariates 
 $\mathbf{X}_i = \{ X_{i1}, \ldots X_{ip} \}$, 
 the Cox PH model has the form 
 
-$$h(t | \mathbf{X}_i)= h_0(t)  \exp(\beta_1 X_{i1} + \ldots \beta_p X_{ip}) 
-= h_0(t) \exp(\beta \mathbf{X}_{i}) $$
+$$h(t | \mathbf{X}_i)= h_0(t)  e^{\beta_1 X_{i1} + \ldots \beta_p X_{ip}} 
+= h_0(t) e^{\beta \mathbf{X}_{i}} $$
 
 where the coefficients $\beta = \{\beta_1, \ldots, \beta_p \}$
-are the effect sizes of the covariates $\mathbf{X}_i$. 
+are the effect sizes of the covariates $\mathbf{X}_i$. The Cox PH model allows us to investigate the relationship between the covariates $\mathbf{X}_i$ and the chance of death, considering that the chance of death may vary over time accoring to $h_0(t)$, which is called the "baseline hazard function at time $t$". 
 
-**Note**: If you take the log of the hazard function, this
-becomes a linear model with a baseline hazard function 
-that varies over time. However, another link function is the 
-"complementary log-log" model (or $log(-log(1-h(t)))$), 
-which is useful when the probability of an event is very 
-small or very large. 
+**Note**: If you take the natural log of the hazard function, you get
+a linear model with a baseline hazard function (intercept)
+that varies over time. 
 
 Here, $h_0(t)$ is the baseline hazard at time $t$. 
-This is the hazard if all the $\mathbf{x}_i$ are 0. A 
+This is the hazard if all the $\mathbf{X}_i$ are 0. A 
 **key assumption** of the Cox PH model is 
-that the baseline hazard curves for groups of observations 
+that the hazard curves for groups of observations 
 should be proportional and cannot cross.
 
 To be specific, consider the $i^{th}$ and
-$j^{th}$ observation and suppose we have only one covariate $X_1$, with 
+$j^{th}$ observations and suppose we have only one covariate $X_1$, with 
 observed values $x$ and $x^{'}$ for the $i^{th}$ and
 $j^{th}$ observations. The ratio of their hazard functions is
 
@@ -918,8 +915,8 @@ which is independent of time! Another way of
 phrasing this is that the hazard for any observation
 is a constant multiple of the hazard for any other observation. 
 
-$\exp({\beta})$ is called hazard ratios (HR). 
-If $\beta > 0$ (or $\exp({\beta})$ > 1), this implies as 
+How do we interpret the coefficients from the Cox PH model? The values $e^{\beta}$ are called hazard ratios (HRs). 
+If $\beta > 0$ (or $e^{\beta}$ > 1), this implies that as 
 $X_{1}$ increases, the hazard increases and thus the 
 survival probability decreases. In constrast, if the HR is 
 less than 1, then this is a reduction in the hazard (or 
@@ -929,12 +926,16 @@ If you take log of the above formula, you will get
 
 $$ log(h_i(t|X_{1}  = x)) - log (h_j(t|X_{1} = x^{'})) = \beta (x-x^{'})$$
 
-Now, slopes $\beta$ is interpretable as difference in log(hazard) 
-with difference in $X_{1}$ at a given time(t). 
+Now, we can see that the slopes $\beta$ are interpretable as differences in the log(hazard) 
+for a difference in $X_{1}$ at a given time, $t$. 
 
-### Background Theory
+Another transformation of the hazard function, $h(t)$ that can be useful is the  "complementary log-log" model (or $log(-log(1-h(t)))$). This transformation can be useful when the probability of an event is very small or very large. 
 
-To get a sense of what the hazard function is, let's first 
+
+
+### Background theory
+
+To get a sense of what the hazard function is in a more detailed mathematical way, let's first 
 consider the survival function. If $T$ is a continous random 
 variable representing the time of death, with probability 
 distribution $f(t)$ and cumulative distribution $F(t)$ that 
@@ -977,7 +978,7 @@ $\Delta t \to 0$, then the hazard function is just
 $$h(t) = \frac{f(t)}{S(t)}$$
 
 
-### Model Application
+### Model application
 
 Now, we can fit a Cox PH model using the `coxph()` function, 
 from the `survival` package. Similiar to when we estimated a 
@@ -987,9 +988,8 @@ using the `Surv()` function (e.g. `Surv(time, death)`).
 In the next section, we will first fit a few univariate Cox 
 PH models to illustrate the model behavior and interpretation. We will then fit a multivariate Cox PH 
 model using all the covariates in our dataset (`rhc_psm_df`). We note that both of these models are using
-the data after matching based on propensity scores.
+the data after matching based on propensity scores. However, to isolate the effect of interest, we still want to include the covariates in the model to estimate a conditional treatment effect.
 
-SHEENA: Can you add a comment about why it is important to adjust for covariates again, even when you have matched based on the propensity scores?
 
 #### Univariate Cox PH model
 
@@ -1008,9 +1008,7 @@ fit_uni1 <- coxph(Surv(time, death) ~ RHC,
 We can also use the `tidy()` function in the 
 [`broom`](https://cran.r-project.org/web/packages/broom/index.html)
 package to create a `tidy` representation of the 
-model output. We just show the head of it here, but 
-you are encouraged to research more if you are 
-interested in it!
+model output as a `data.frame` object. 
 
 ```{r}
 res <- tidy(fit_uni1, conf.int = TRUE,
@@ -1018,16 +1016,45 @@ res <- tidy(fit_uni1, conf.int = TRUE,
 res
 ```
 
+What does this model output tell us? The coefficient here (`estimate`) is the 
+$\beta$ coefficient from the model formulation described above, where we have only one covariate, RHC. More specifically, we have fit the model:
+$$h(t | X)= h_0(t)  e^{\beta_1 X} $$
+
+where $X=1$ if the patient received RHC and $X=0$ if not and $h_0(t)$ is the baseline hazard at time $t$. Again referring to the results from above, we have:
+
+$$\frac{h(t| RHC)}{h(t|no RHC)}=\frac{h_0(t) e^{\beta * 1}}{h_0(t) e^{\beta * 0}}=e^{\beta}$$
+
+
+Our model output tells us that we on average have multiplicative change in hazard of $e^{\beta}$=exp(`r round(res$estimate, 3)`)=`r round(exp(res$estimate),3)`, comparing a person with RHC ($X=1$) to one without ($X=0$). This exponentiated coefficient, whose value is `r round(exp(res$estimate),3)`, is the hazard ratio comparing someone with RHC to someone without RHC. If the exponentiated 
+coefficient is larger than 1, the model estimates that the variable will increase 
+the hazard of the event occuring (or decrease the 
+survival probability). The model output also contains a p-value and 95% confidence interval for the coefficient; in this case, we can see that $\beta$ is statistically significantly different from 0 since the p-value is < 0.05 and the confidence interval does not contain the null value of 0.
+
+Note, we can also ask to report the coefficients 
+(`estimate`) and confidence intervals on an 
+exponential scale with the `exponentiate = TRUE`
+argument. 
+
+```{r}
+res_exp <- tidy(fit_uni1, exponentiate = TRUE, 
+            conf.int = TRUE, conf.level = 0.95)
+res_exp
+```
+
+Note that now, we want to check whether the confidence interval contains 1, which is the null value for the hazard ratio. We can see that the significance results match those from the non-exponentiated model output, which makes sense.
+
 Next, a univariate Cox PH model for `age` is given by 
 
 ```{r}
 fit_uni2 <- coxph(Surv(time, death) ~ age, 
               data = rhc_psm_df)
 
-res <- tidy(fit_uni2, conf.int = TRUE,
-                conf.level = 0.95)
+res <- tidy(fit_uni2, exponentiate=TRUE,
+            conf.int = TRUE, conf.level = 0.95)
 res
 ```
+
+We can see that for each additional year in age, the hazard is estimated to change by a multiplicative factor of `r round(res$estimate,3)` and that this estimate is again statistically significantly different from the null value of 1.
 
 Finally, a univariate Cox PH model for `weight` is given by 
 
@@ -1035,8 +1062,8 @@ Finally, a univariate Cox PH model for `weight` is given by
 fit_uni3 <- coxph(Surv(time, death) ~ weight, 
               data = rhc_psm_df)
 
-res <- tidy(fit_uni3, conf.int = TRUE, 
-                conf.level = 0.95)
+res <- tidy(fit_uni3, exponentiate=TRUE,
+            conf.int = TRUE, conf.level = 0.95)
 res
 ```
 
@@ -1047,7 +1074,7 @@ does not have a statistically significant effect.
 #### Multivariate Cox PH model
 
 Next, we will fit a Cox PH model using the `coxph()` 
-function and including all the covariates in our dataset 
+function and include all the covariates in our dataset 
 (`rhc_psm_df`), after propensity score estimation. 
 
 First, we recall the column names in our dataset: 
@@ -1076,17 +1103,7 @@ res <- tidy(fit_all, conf.int = TRUE,
 head(res)
 ```
 
-Recall, the coefficients here (`estimates`) are the 
-$\beta_j$ coefficients. We can convert this to hazard ratios 
-by exponentiating the coefficients. If the exponentiated 
-coefficient is larger than 1, the variable will increase 
-the hazard of the event occuring (or decrease the 
-survival probability). 
-
-Note, we can also ask to report the coefficients 
-(`estimate`) and confidence intervals on an 
-exponential scale with the `exponentiate = TRUE`
-argument. 
+Again, we can report the results on the exponential scale, so that the esimates are interpretable as hazard ratios:
 
 ```{r}
 res_exp <- tidy(fit_all, exponentiate = TRUE, 
@@ -1095,6 +1112,7 @@ head(res_exp)
 tail(res_exp)
 ```
 
+Looking at these results, we can see that RHC has a very similar estimated effect here and in the univariate Cox PH model we fit above. In both cases, the effect of RHC is to increase the chance of death for the patient, with a hazards ratio of `r round(res_exp %>% filter(term == "RHC") %>% select(estimate), 2)`, whose confidence interval is `r round(res_exp %>% filter(term == "RHC") %>% select(conf.low), 2)` to `r round(res_exp %>% filter(term == "RHC") %>% select(conf.high), 2)`.
 
 ### Check the fundamental assumption
 
@@ -1112,10 +1130,10 @@ change over time?
 #### Complementary log-log plot
 
 One way to check the fundamental assumption is to use a data visualization. A plot that shows a non-random pattern 
-against time is a violation of the assumption. 
+of hazard against time may indicate a violation of the assumption. 
 
 The first plot we will consider is the "complementary 
-log-log" model, which displays ($log(-log(1-h(t)))$ or $log(-log(S(t)))$ 
+log-log" model, which displays ($ln(-ln(1-h(t)))$ or $ln(-ln(S(t)))$ 
 vs. $ln(t)$. For a given variable (e.g. `RHC`), here is
 a cartoon of what it looks like if the assumption is 
 not violated:
@@ -1125,7 +1143,7 @@ not violated:
 </center>
 
 And here is a cartoon of what it might look like if the 
-assumption was violated: 
+assumption is violated: 
 
 <center>
 ![](doc/check-violate.png)
@@ -1147,34 +1165,33 @@ ggsurvplot(survfit(sur_obj2 ~ RHC, data = rhc_psm_df),
            fun = function(x){log(-log(x))})
 ```
 
-Our dataset doesn't violate the assumption.
+Looking at this plot, it appears that our dataset doesn't violate the assumption.
 
 
 #### Statistical assessments 
 
-Another approach is to use a formal statistical test to 
-asesses the proportional hazards assumption. Here we will 
-use the `cox.zph()` function in `survival` package. It tests
+Another approach to assess the model assumptions is to use a formal statistical test. Here we will 
+use the `cox.zph()` function in the `survival` package. It tests
 for proportionality of all the variables specified in the model 
 by creating interaction terms with time (on the log scale). 
 Then, the function will test for independence of each 
-variable. It also performs a global test for all the 
-interactions tested together in the model. If the _p_-value 
+variable. If the interaction terms are non-significant, the conclusion is that the effect of that covariate does not vary with time. The function also performs a global test for all the 
+interactions tested together in the model. If the p-value 
 is less than 0.05, this suggests a violation of the PH
 assumption. [see @Grambsch_1994]
 
 For instance, if our model is 
-$log~h(t|X_1)= \beta_0 + \beta_1 X_1$ (where 
-$\beta_0 = \log(h_0(t))$), to test whether $X_1$ is 
+$ln(h(t|X_1))= \beta_0 + \beta_1 X_1$ (where 
+$\beta_0 = \ln(h_0(t))$), to test whether $X_1$ is 
 time-varying, the `cox.zph()` function creates an 
-interaction term $X_1*log~t$ in the model. 
+interaction term $X_1*ln(t)$ in the model. 
 Now the model is 
 
-$$log~h(t|X_1)= \beta_0 + \beta_1~X_1 + \beta_1^{'}(X_1*log~t)$$
+$$ln~h(t|X_1)= \beta_0 + \beta_1~X_1 + \beta_2(X_1*ln~t)$$
 
-Using a null hypothesis of $H_0: \beta_1^{'}=0$, we can 
-assess whether or not there is a relationship with time according to whether we reject or fail to reject the null hypothesis. Note, 
-a _p_-value less than a specified Type 1 error (e.g. $\alpha$ 
+Using a null hypothesis of $H_0: \beta_2=0$, we can 
+assess whether or not there is a relationship with time according to whether we reject or fail to reject this null hypothesis. Note, 
+a p-value less than a specified Type 1 error (e.g. $\alpha$ 
 = 0.05) suggests there is evidence that the effect of the variable ($X_1$) is 
 time-varying.
 
@@ -1182,7 +1199,7 @@ To illustrate the test, we use our data set as an example,
 and we use the `fit_all` Cox PH model from above. The `transform`
 argument describes how the survival times should be
 transformed before the test is performed. For example, we 
-use `transform = log` to get $X*log~t$ in our model. 
+use `transform = log` to get $X*ln~t$ in our model. 
 
 ```{r}
 check.ph <- cox.zph(fit_all, transform = 'log')
@@ -1196,16 +1213,16 @@ between the covariate for that subject and the weighted average
 of covariates in the risk set. The last row contains
 the global test for all the interactions tested at once. 
 
-We notice the _p_-value for `ph` is less than 0.05, 
+We notice the p-value for `ph` is less than 0.05, 
 suggesting that there may be a violation of the Cox PH
 assumptions for this variable. If you recall, this variable
 represents the PH level from the patient. 
 
 Let's explore this a bit more with a graphical assessment of 
 the Schoenfeld residuals. Here we pick out 6 variables (`age`, 
-`sex`,  `education`, `diseaseComa` and `diseaseCOPD`, as well as `ph`) and graphically assessess 
+`sex`,  `education`, `diseaseComa` and `diseaseCOPD`, as well as `ph`) and graphically assess 
 whether or not there is a relationship between the variable and time. 
-We will use the function `ggcoxzph` in package `survminer`, 
+We will use the function `ggcoxzph` in the package `survminer`, 
 which will generate plots of residuals for individual 
 predictors against time, where a non-zero slope is evidence against
 the Cox PH assumption. 
@@ -1217,20 +1234,19 @@ plist <- ggcoxzph(check.ph, point.alpha = 0.1)[c(1,2,5,17,18,30)]
 grid.arrange(grobs = lapply(plist, ggplotGrob), ncol =2)
 ```
 
-The `grid.arrange()` function in the package `gridExtra` can be  
-used to arrange several plots in one chunk. The `ggcoxzph` 
-function returns an object which is a list of ggplot objects, 
-rather than plot a `grob`, or more specifically, gtables. 
-`gtables` are matrix-like layouts placed in cells that can
-be directly used as an input in `grid` system and related packages.
-So to convert them, we use `ggplotGrob()` function in package 
-`ggplot2` to generate ggplot2 plot grobs that are compatible
+The `grid.arrange()` function in the package `gridExtra` can be used to arrange several plots in an array. The `ggcoxzph` 
+function, rather than generating plots, returns an object which is a list of ggplot objects, 
+, or more specifically, gtables. 
+These `gtables` are matrix-like layouts placed in cells that can
+be directly used as an input in the `grid` system of graphics and related packages.
+So to convert them to ggplot objects, we use the `ggplotGrob()` function in the package 
+`ggplot2` to generate ggplot2 grobs that are compatible
 with function `grid.arrange()`.
 
 In the figures above, the solid line is a smoothing spline
 fit to the plot, with the dashed lines representing a 95% confidence
-interval. As we said, an apparent departure from a horizontal 
-line indicates violation for assumption. All of these 6 
+interval around this smoothed line. As we said, an apparent departure from a horizontal 
+line indicates violation for the proportional hazards assumption. All of these 6 
 variables have a zero slope, suggesting the assumption is 
 not violated. For more information on graphical diagnostics, 
 we refer the reader to [@Klein_2006]:
@@ -1240,12 +1256,12 @@ we believe that the proportional hazards assumption only approximates
 the correct model for a covariate and any formal test, based on
 a large enough sample, will reject the null hypothesis of proportionality."
 
-Therefore, even though we see a _p_-value less than 0.05 for 
+Therefore, even though we see a p-value less than 0.05 for 
 the `ph` variable, we do not see a strong relationship with time. 
 One way this can happen is if we are testing a model with many 
-variables, the _p_-values from some variables may be less 
+variables, the p-values from some variables may be less 
 than 0.05 by chance. Especially when there are lots of 
-variables, a subtle deviation will be reflected in the p-value. 
+variables, a subtle deviation will be reflected in the p-value, whereas the graphical summary can give us a better feeling for the extent of the violation. 
 
 
 ### Comparing estimates of survival 
@@ -1281,7 +1297,7 @@ fit_all <- coxph(Surv(time, death) ~ . -
 res_all <- tidy(fit_all,exponentiate = TRUE,
             conf.int = TRUE, conf.level = 0.95)
 
-res_all[res_all$term == 'RHC', ] # row contains result for RHC
+res_all %>% filter(term=="RHC")
 ```
 
 Then we would like to summarise them in a table:
@@ -1289,8 +1305,8 @@ Then we would like to summarise them in a table:
 df_res <- 
   data.frame(c1 = c("RHC", "RHC"),
         c2 = c("univariate Cox PH", "multivariate Cox PH"),
-        c3 = c(res_uni1$estimate, res_all[31,]$estimate),
-        c4 = c(res_uni1$p.value, res_all[31,]$p.value),
+        c3 = c(res_uni1$estimate, res_all %>% filter(term=="RHC") %>% select(estimate)),
+        c4 = c(res_uni1$p.value, res_all %>% filter(term=="RHC") %>% select(p.value)),
         c5 = c("None","Variables in `rhc_psm_df`")) 
 colnames(df_res) <- c("Prognostic variable","Method ", "HR",
                       "p-value", "Adjusted for")
@@ -1306,8 +1322,7 @@ Also, we can add survival plots with the curves split
 by `RHC` with the help of the `ggadjustedcurves()` function in 
 `survminer` package. 
 
-If we compare this to the survival plot after adjusting for 
-other covariates, we see that: 
+We can then compare these three plots: 
 
 ```{r,fig.width=12, fig.height=6}
 # Univariate case
@@ -1339,7 +1354,7 @@ before, `p_km` is a list created by function
 `ggsurvplot()` and it is not compatible with 
 `grid.arrange()`. However, a function called 
 `arrange_ggsurvplots()` can be used to arrange
-multiple `ggsurvplot`s. 
+multiple `ggsurvplot` objects. 
 
 However, the other two plots are created by 
 `ggadjustedcurves()`, which are compatible with 
@@ -1347,8 +1362,8 @@ However, the other two plots are created by
 extract the `plot` object from list `p_km`.
 
 The middle and right plots show survival curves
-for a matched dataset, corresponding to univariate 
-or multivariate model respectively. In the multivariate 
+for a matched dataset, corresponding to the univariate 
+and multivariate models, respectively. In the multivariate 
 case, the difference in the survival rate seems to be smaller 
 than in the univariate case, but it is only a slight difference.
 
@@ -1365,7 +1380,7 @@ In this case study, we explored the association between time to death
 and RHC based on an observational dataset collected over the course of 30 days. We covered various statistical topics 
 to help us assess this association, such as survival analysis, propensity score matching and
 the Cox proportional hazards model. Based on our analyses, we can conclude that RHC has a positive relationship with 
-the risk of mortality even when adjusting for confounding variables. 
+the risk of mortality, even when adjusting for confounding variables. 
 
 We started by looking at the data, separating the dataset into two groups based on whether or not the subject received RHC, 
 using the variable `RHC`. We made a table to show the distributions of all other variables
@@ -1373,7 +1388,7 @@ in the two groups, and made some figures to visualize these differences. We foun
 such as blood pressure and PaO2/FIO2 ratio, while others do not vary too much, like age.
 
 
-Next we tried the Kaplan-Meier method, a non-parametric method, to find 
+Next we tried the Kaplan-Meier method, a non-parametric method, to explore 
 the relationship between survival rate and whether a patient received RHC treatment or not. 
 The result was shown as a survival curve plot. It provided us an initial understanding 
 that the survival rate is higher in the population managed without RHC treatment. 
@@ -1394,12 +1409,11 @@ We also evaluated the proportionality assumption that is made when using a Cox P
 checks and a statistical test. There is no obvious pattern with time
 so the assumption does not seem to be violated in our data set. 
 
-Finally, we fit a mutlivariate Cox PH model to assess adjusted outcomes. Comparing the univariate and 
-multivariate model, the difference of survival between two groups decreases with the multivariate model, 
+Finally, we fit a mutlivariate Cox PH model to assess adjusted outcomes. In both the univariate and 
+multivariate model, the difference of survival between the `RHC` and `No RHC` groups decreases with the multivariate model, 
 supporting our choice of performing data matching to alleviate confounding. However, 
 the survival rate for patients with RHC treatment is still lower than
-patients without RHC treatment so we concluded this treatment is harmful.
-
+for patients without RHC treatment, so we conclude that this treatment is harmful.
 
 Opportunities for further improvement of our model include variable selection 
 and model engineering. The original data set includes `r nrow(rhc)` variables but we used just 
@@ -1409,13 +1423,13 @@ further variables and model engineering.
 
 Our outcomes seem to directly oppoese the widespread belief that RHC is 
 recommended in broad clinical applications. This may be caused by the fact that confounding variables 
-which increase the probability of receiving RHC and the probability of death overall make it difficult to accurately assess the impact of RHC based on anectodal observation. Our analysis, which attempts to control for these confounders, aims to produce a more rigorous statistical result, within the limitations of this observational data set. 
+which increase the probability of receiving RHC and the probability of death overall make it difficult to accurately assess the impact of RHC based on anecdotal observation. Our analysis, which attempts to control for these confounders, aims to produce a more rigorous statistical result, within the limitations of this observational data set. 
 However, we admit the limitations of this study and are happy to receive additional suggestions to 
 better understand the role of RHC. 
 
 
 
-# Reference
+# References
 
 
 
